@@ -1,11 +1,16 @@
 require('dotenv').config();
 const { v4: uuidv4 } = require('uuid');
 const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken')
+const jwt = require('jsonwebtoken');
 
 ///////////////////////////////////////////IMPORTACIONES DE MODELOS///////////////////////////////////////
 
 const AdminModel = require('../models/adminModel.js')
+const PasswordResetModel = require('../models/passwordResetModel.js')
+
+/////////////////////////////////////////IMPORTACIONES SECUNDARIAS////////////////////////////////////////
+
+const { sendEmailPassword } = require('../utils/envioEmails.js')
 
 ////////////////////////////////////////REGISTRO DE ADMINISTRADOR/////////////////////////////////////////
 
@@ -64,7 +69,39 @@ const login = async(req,res) => {
     }
 }
 
+const forgotPassword = async(req,res) => {
+    try {
+        const { email } = req.body
+        const normalizedEmail = email.toLowerCase();
+        const admin = await AdminModel.findOne({ email: normalizedEmail });
+
+        if (!admin) {
+            return res.status(404).send({ message: 'Admin not found' });
+        }
+
+        const id = uuidv4()
+
+        const request = new PasswordResetModel({
+            id,
+            email: normalizedEmail
+        });
+
+        await request.save();
+        await sendEmailPassword(id ,admin.email);
+
+        return res.status(200).json({ message: 'Email enviado con éxito' })
+
+    } catch (error) {
+        console.log('Error/ forgot-password', error)
+
+        return res.status(500).send({
+            message: 'Ocurrió un error enviando el email'
+        });
+    }
+}
+
 module.exports = { 
     register,
-    login
+    login,
+    forgotPassword
 }
