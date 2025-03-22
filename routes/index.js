@@ -1,7 +1,7 @@
 const express = require('express');
 const app = express();
-const userRoutes = require('./jireh');
+const userRoutesAdmin = require('./jirehAdmin');
 
-app.use('/jireh', userRoutes);
+app.use('/jireh', userRoutesAdmin);
 
 module.exports = app;

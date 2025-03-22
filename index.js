@@ -14,6 +14,8 @@ app.use(cors());
 
 app.use('/uploads', express.static(__dirname + '/uploads'));
 app.use('/', template);
+app.use('/api/jireh', require('./routes/jirehAdmin.js'));
+app.use('/api/userJireh', require('./routes/jirehUser.js'));
 
 app.listen(process.env.PORT, () => console.log(`Corriendo microservicio de ${MICROSERVICE_NAME} en el puerto ${process.env.PORT}`.magenta));
 connectToDatabase(process.env.DATABASE_URI)
