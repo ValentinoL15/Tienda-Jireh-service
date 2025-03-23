@@ -227,4 +227,5 @@ async function sendEmailPassword(id, email) {
     })
 }
 
+
 module.exports = { sendEmailPassword }

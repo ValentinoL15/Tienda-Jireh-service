@@ -2,11 +2,34 @@ const express = require('express');
 require('dotenv').config();
 const router = express.Router();
 const AdminControllers = require('../controllers/jirehAdminControllers')
+const { isAdmin } = require('../middlewares/isAdmin')
+const multerStorage = require('../utils/multer');
+const { isAuthenticated } = require('../middlewares/auth');
 
 router.post('/register', AdminControllers.register)
 
 router.post('/login', AdminControllers.login)
 
 router.post('/forgot-password', AdminControllers.forgotPassword)
+
+router.post('/reset-password/:id', AdminControllers.resetPassword)
+
+////////////////////////////////////////////SHOES///////////////////////////////////////////////
+
+router.get('/shoes', [isAuthenticated] ,AdminControllers.getShoes)
+
+router.get('/shoe/:id', [isAuthenticated] ,AdminControllers.getShoe)
+
+router.post('/create-shoe', [isAuthenticated ,isAdmin] , multerStorage.single('image') ,AdminControllers.createShoe)
+
+router.put('/update-shoe/:id', [isAuthenticated ,isAdmin] , AdminControllers.updateShoe);
+
+router.delete('/delete-shoe/:id', [isAuthenticated ,isAdmin] , AdminControllers.deleteShoe);
+
+////////////////////////////////////////////SPECIFIC SHOES///////////////////////////////////////////////
+
+router.post('/create-specific-shoe', [isAuthenticated ,isAdmin] , multerStorage.single('image') ,AdminControllers.createSpecificShoe)
+
+
 
 module.exports = router

@@ -1,4 +1,4 @@
-const AdminModel = require('../models/adminModel');
+const AdminModel = require('../models/adminModel.js');
 
 const isAdmin = async (req, res, next) => {
 

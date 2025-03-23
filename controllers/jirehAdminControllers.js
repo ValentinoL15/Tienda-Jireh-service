@@ -2,17 +2,27 @@ require('dotenv').config();
 const { v4: uuidv4 } = require('uuid');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto-js');
+const shortid = require('short-uuid');
+const cloudinary = require('cloudinary');
 
 ///////////////////////////////////////////IMPORTACIONES DE MODELOS///////////////////////////////////////
 
 const AdminModel = require('../models/adminModel.js')
 const PasswordResetModel = require('../models/passwordResetModel.js')
+const ShoeModel = require('../models/shoeModel.js')
+const SpecificShoeModel = require('../models/specificShoeModel.js')
 
 /////////////////////////////////////////IMPORTACIONES SECUNDARIAS////////////////////////////////////////
 
 const { sendEmailPassword } = require('../utils/envioEmails.js')
+cloudinary.config({
+    cloud_name: process.env.CLOUD_NAME,
+    api_key: process.env.CLOUD_KEY,
+    api_secret: process.env.CLOUD_API_SECRET
+})
 
-////////////////////////////////////////REGISTRO DE ADMINISTRADOR/////////////////////////////////////////
+////////////////////////////////////////REGISTRO & LOGIN DE ADMINISTRADOR/////////////////////////////////////////
 
 const register = async(req,res) => {
     try {
@@ -100,8 +110,198 @@ const forgotPassword = async(req,res) => {
     }
 }
 
+const resetPassword = async(req,res) => {
+    try {
+        const { id } = req.params;
+        
+        const reset = await PasswordResetModel.findOne({ id });
+        if(!reset) return res.status(404).json({ message: 'Link no encontrado' });
+
+        const normalaizedEmail = reset.email.toLowerCase();
+        const adminFound = await AdminModel.findOne({ email: normalaizedEmail });
+        if(!adminFound) return res.status(404).json({ message: 'Admin no encontrado' });
+
+        const hashed = await bcrypt.hash(req.body.password, 10);
+        await AdminModel.findByIdAndUpdate(adminFound._id, { password: hashed }, { new: true });
+        await PasswordResetModel.findByIdAndDelete(reset._id);
+        return res.status(200).json({ message: 'Contraseña actualizada con éxito' });
+
+    } catch (error) {
+        console.log('Error/ reset-password', error)
+        return res.status(500).send({
+            message: 'Ocurrió un error actualizando la contraseña'
+        });
+    }
+}
+
+////////////////////////////////////////SHOE////////////////////////////////////////
+
+//DONE
+const getShoes = async(req,res) => {
+    try {
+        const shoes = await ShoeModel.find();
+        return res.status(200).json({ shoes });
+    } catch (error) {
+        console.error('Error en /get-shoe:', error);
+        return res.status(500).json({ message: 'Ocurrió un error obteniendo los tenis' });
+    }
+}
+
+//DONE
+const getShoe = async(req,res) => {
+    try {
+        const { id } = req.params;
+        const shoe = await ShoeModel.findById(id);
+        if(!shoe) return res.status(404).json({ message: 'Tenis no encontrado' });
+        return res.status(200).json({ shoe });
+    } catch (error) {
+        console.error('Error en /get-shoe/:id:', error);
+        return res.status(500).json({ message: 'Ocurrió un error obteniendo el tenis' });
+    }
+}
+
+//DONE
+const createShoe = async (req, res) => {
+    try {
+        const { name, gender, brand, material, type, price } = req.body;
+    
+        const shoeExist = await ShoeModel.findOne({
+            name: { $regex: new RegExp(`^${name.trim()}$`, 'i') }
+        });        
+        if (shoeExist) return res.status(400).json({ message: 'El tenis ya existe' });
+
+        if(!name || !gender || !brand || !material || !type || !req.file) {
+            return res.status(400).json({ message: 'Por favor, complete todos los campos' });
+        }
+
+        let reference_id;
+        let existingShoe;
+
+        // Generar un ID único
+        do {
+            const shortId = shortid.generate();
+            reference_id = `#${shortId}`;
+            existingShoe = await ShoeModel.findOne({ reference_id });
+        } while (existingShoe); // Si existe, genera otro
+
+        const result = await cloudinary.v2.uploader.upload(req.file.path);
+        if (!result) {
+            return res.status(400).json({message: 'Error al subir la imagen a Cloudinary'});
+        }
+        const shoe = new ShoeModel({
+            name,
+            reference_id,
+            gender,
+            brand,
+            material,
+            price,
+            type,
+            image: result.url,
+            public_Id: result.public_id
+        });
+
+        await shoe.save();
+
+        return res.status(201).json({ message: "Tenis creado correctamente" });
+    } catch (error) {
+        console.error('Error en /create-shoe:', error);
+        return res.status(500).json({ message: 'Ocurrió un error creando el zapato' });
+    }
+};
+
+//DONE
+const updateShoe = async(req,res) => {
+    try {
+        const { id } = req.params;
+        const { name, gender, material, price, type, brand } = req.body;
+
+        const shoeExist = await ShoeModel.findOne({
+            name: { $regex: new RegExp(`^${name.trim()}$`, 'i') }
+        });        
+        if (shoeExist) return res.status(400).json({ message: 'El tenis con ese nombre ya existe, por favor pruebe con otro' });
+
+        const shoe = await ShoeModel.findById(id);
+        if (!shoe) return res.status(404).json({ message: 'Tenis no encontrado' });
+        if(name === shoe.name) return res.status(400).json({ message: 'Por favor, ingrese un nombre diferente' });
+        await ShoeModel.findByIdAndUpdate(id, { name, gender, material, price, type, brand }, { new: true });
+        return res.status(200).json({ message: 'Tenis editado con éxito' });
+
+    } catch (error) {
+        console.error('Error en /edit-shoe:', error);
+        return res.status(500).json({ message: 'Ocurrió un error editando el tenis' });
+    }
+}
+
+//DONE
+const deleteShoe = async(req,res) => {
+    try {
+        const { id } = req.params;
+        const shoe = await ShoeModel.findById(id);
+        if (!shoe) return res.status(404).json({ message: 'Tenis no encontrado' });
+        if(shoe.public_id) {
+            const result = await cloudinary.v2.uploader.destroy(shoe.public_id);
+            if (result.result !== 'ok') {
+                return res.status(400).json({ message: 'Error al eliminar la imagen de Cloudinary' });
+        }};
+        await ShoeModel.findByIdAndDelete(id);
+        return res.status(200).json({ message: 'Tenis eliminado con éxito' });
+    } catch (error) {
+        console.error('Error en /delete-shoe:', error);
+        return res.status(500).json({ message: 'Ocurrió un error eliminando el tenis' });
+    }
+}
+
+///////////////////////////////////////////////SPECIFIC-SHOE///////////////////////////////////////////////
+
+const createSpecificShoe = async(req,res) => {
+    try {
+        const { id } = req.params;
+        const { size, color, stock } = req.body;
+        
+        const shoe = await ShoeModel.findById(id);
+        if (!shoe) return res.status(404).json({ message: 'Tenis no encontrado' });
+
+        const result = await cloudinary.v2.uploader.upload(req.file.path);
+        if (!result) {
+            return res.status(400).json({message: 'Error al subir la imagen a Cloudinary'});
+        }
+
+        shoe.shoes.forEach(async (specificShoe) => {
+            const shoe = await SpecificShoeModel.findById(specificShoe);
+            if (shoe.size === size || shoe.color === color) {
+                return res.status(400).json({ message: 'Ya existe un tenis con ese tamaño y color' });
+            }
+        })
+
+        const specificShoe = new SpecificShoeModel({
+            size,
+            color,
+            stock,
+            shoe_id: id,
+            image: result.url,
+            public_id: result.public_id
+        })
+
+        await specificShoe.save();
+        shoe.shoes.push(specificShoe._id);
+        await shoe.save();
+        return res.status(201).json({ message: 'Tenis creado correctamente'})
+
+    } catch (error) {
+        console.error('Error en /create-specific-shoe:', error);
+        return res.status(500).json({ message: 'Ocurrió un error creando el tenis específico' });
+    }
+}
+
 module.exports = { 
     register,
     login,
-    forgotPassword
+    forgotPassword,
+    resetPassword,
+    createShoe,
+    getShoes,
+    getShoe,
+    updateShoe,
+    deleteShoe,
+    createSpecificShoe
 }

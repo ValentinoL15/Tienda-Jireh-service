@@ -19,6 +19,10 @@ const shoeSchema = mongoose.Schema(
             type: String,
             required: true
         },
+        price: {
+            type: Number,
+            required: true
+        },
         type: {
             type: String,
             enum: ["Zapatilla", "Zapato", "Ojota","Botin", "Training"],
@@ -32,7 +36,18 @@ const shoeSchema = mongoose.Schema(
         image: {
             type: String,
             required: true
+        },
+        public_id: {
+            type: String,
+        },
+        shoes: {
+            type: [mongoose.Schema.Types.ObjectId],
+            ref: 'SpecificShoeModel',
         }
+    },
+    { 
+        timestamps: true,
+        versionKey: false 
     }
 )
 
