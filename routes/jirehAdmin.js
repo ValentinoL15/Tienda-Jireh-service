@@ -28,8 +28,12 @@ router.delete('/delete-shoe/:id', [isAuthenticated ,isAdmin] , AdminControllers.
 
 ////////////////////////////////////////////SPECIFIC SHOES///////////////////////////////////////////////
 
+router.get('/specific-shoe/:id', [isAuthenticated] ,AdminControllers.getSpecificShoe)
+
 router.post('/create-specific-shoe/:id', [isAuthenticated ,isAdmin] , multerStorage.single('image') ,AdminControllers.createSpecificShoe)
 
+router.put('/update-specific-shoe/:id', [isAuthenticated ,isAdmin], multerStorage.single('image') , AdminControllers.updateSpecificShoe);
 
+router.delete('/delete-specific-shoe/:id', [isAuthenticated ,isAdmin] , AdminControllers.deleteSpecificShoe);
 
 module.exports = router

@@ -253,6 +253,20 @@ const deleteShoe = async(req,res) => {
 
 ///////////////////////////////////////////////SPECIFIC-SHOE///////////////////////////////////////////////
 
+//DONE
+const getSpecificShoe = async(req,res) => {
+    try {
+        const { id } = req.params;
+        const specificShoe = await SpecificShoeModel.findById(id);
+        if (!specificShoe) return res.status(404).json({ message: 'Tenis específico no encontrado' });
+        return res.status(200).json({ specificShoe });
+    } catch (error) {
+        console.error('Error en /get-specific-shoe:', error);
+        return res.status(500).json({ message: 'Ocurrió un error obteniendo los tenis específicos' });
+    }
+}
+
+//DONE
 const createSpecificShoe = async(req,res) => {
     try {
         const { id } = req.params;
@@ -295,6 +309,78 @@ const createSpecificShoe = async(req,res) => {
         console.error('Error en /create-specific-shoe:', error);
         return res.status(500).json({ message: 'Ocurrió un error creando el tenis específico' });
     }
+};
+
+const updateSpecificShoe = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { stock } = req.body;
+
+        const specificShoe = await SpecificShoeModel.findById(id);
+        if (!specificShoe) {
+            return res.status(404).json({ message: 'Tenis específico no encontrado' });
+        }
+
+        let updatedFields = {};
+
+        if (stock !== undefined && stock !== specificShoe.stock) {
+            updatedFields.stock = stock;
+        }
+
+        if (req.file) {
+            const result = await cloudinary.v2.uploader.upload(req.file.path);
+            if (!result) {
+                return res.status(400).json({ message: 'Error al subir la imagen a Cloudinary' });
+            }
+            await cloudinary.v2.uploader.destroy(specificShoe.public_id);
+            updatedFields.image = result.url;
+            updatedFields.public_id = result.public_id;
+        }
+
+        if (Object.keys(updatedFields).length === 0) {
+            return res.status(400).json({ message: 'No se detectaron cambios en los datos' });
+        }
+
+        await SpecificShoeModel.findByIdAndUpdate(id, updatedFields, { new: true });
+
+        return res.status(200).json({ message: 'Tenis actualizado correctamente' });
+
+    } catch (error) {
+        console.error('Error en /edit-specific-shoe:', error);
+        return res.status(500).json({ message: 'Ocurrió un error editando el tenis específico' });
+    }
+};
+
+//DONE
+const deleteSpecificShoe = async(req,res) => {
+    try {
+        const { id } = req.params;
+        const specificShoe = await SpecificShoeModel.findById(id);
+        if (!specificShoe) return res.status(404).json({ message: 'Tenis específico no encontrado' });
+
+        const shoe = await ShoeModel.findOne({ _id: specificShoe.shoe_id });
+        if (!shoe) return res.status(404).json({ message: 'Tenis no encontrado' });
+
+        if(specificShoe.public_id) {
+            const result = await cloudinary.v2.uploader.destroy(specificShoe.public_id);
+            if (result.result !== 'ok') {
+                return res.status(400).json({ message: 'Error al eliminar la imagen de Cloudinary' });
+        }};
+
+        for(const specificShoeId of shoe.shoes) {
+            if(specificShoeId.toString() === id) {
+                shoe.shoes.pull(specificShoeId);
+                await shoe.save();
+                break;
+        }
+    }
+
+        await SpecificShoeModel.findByIdAndDelete(id);
+        return res.status(200).json({ message: 'Tenis eliminado con éxito' });
+    } catch (error) {
+        console.error('Error en /delete-specific-shoe:', error);
+        return res.status(500).json({ message: 'Ocurrió un error eliminando el tenis específico' });
+    }
 }
 
 module.exports = { 
@@ -307,5 +393,8 @@ module.exports = {
     getShoe,
     updateShoe,
     deleteShoe,
-    createSpecificShoe
+    createSpecificShoe,
+    getSpecificShoe,
+    updateSpecificShoe,
+    deleteSpecificShoe
 }
