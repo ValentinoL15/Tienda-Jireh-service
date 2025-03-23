@@ -28,7 +28,7 @@ router.delete('/delete-shoe/:id', [isAuthenticated ,isAdmin] , AdminControllers.
 
 ////////////////////////////////////////////SPECIFIC SHOES///////////////////////////////////////////////
 
-router.post('/create-specific-shoe', [isAuthenticated ,isAdmin] , multerStorage.single('image') ,AdminControllers.createSpecificShoe)
+router.post('/create-specific-shoe/:id', [isAuthenticated ,isAdmin] , multerStorage.single('image') ,AdminControllers.createSpecificShoe)
 
 
 

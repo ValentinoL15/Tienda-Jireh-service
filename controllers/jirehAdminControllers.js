@@ -257,6 +257,10 @@ const createSpecificShoe = async(req,res) => {
     try {
         const { id } = req.params;
         const { size, color, stock } = req.body;
+
+        if (!size || !color || !stock || !req.file) {
+            return res.status(400).json({ message: 'Por favor, complete todos los campos' });
+        }
         
         const shoe = await ShoeModel.findById(id);
         if (!shoe) return res.status(404).json({ message: 'Tenis no encontrado' });
@@ -266,13 +270,13 @@ const createSpecificShoe = async(req,res) => {
             return res.status(400).json({message: 'Error al subir la imagen a Cloudinary'});
         }
 
-        shoe.shoes.forEach(async (specificShoe) => {
-            const shoe = await SpecificShoeModel.findById(specificShoe);
-            if (shoe.size === size || shoe.color === color) {
+        for (const specificShoeId of shoe.shoes) {
+            const existingShoe = await SpecificShoeModel.findById(specificShoeId);
+            if (existingShoe.size === Number(size) && existingShoe.color === color) {
                 return res.status(400).json({ message: 'Ya existe un tenis con ese tamaño y color' });
             }
-        })
-
+        }
+        
         const specificShoe = new SpecificShoeModel({
             size,
             color,
