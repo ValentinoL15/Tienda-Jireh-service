@@ -23,9 +23,17 @@ const shoeSchema = mongoose.Schema(
             type: Number,
             required: true
         },
+        discount: {
+            type: Boolean,
+            default: false
+        },
+        discount_percentage: {
+            type: Number,
+            default: 0
+        },
         type: {
             type: String,
-            enum: ["Zapatilla", "Zapato", "Ojota","Botin", "Training"],
+            enum: ["Running", "Gimnasio y Ejercicio", "Outdoor","Guayos", "Sandalias", "Calzado Comodo", "Originals", "Gazelle", "Samba"],
             required: true
         },
         brand: {
