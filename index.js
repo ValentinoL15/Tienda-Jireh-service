@@ -12,6 +12,11 @@ app.use(express.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(cors());
 
+// Rutas personalizadas
+app.get('/', (req, res) => {
+    res.send('Hola, el servidor está funcionando correctamente!');
+  });
+
 app.use('/uploads', express.static(__dirname + '/uploads'));
 app.use('/', template);
 app.use('/api/jireh', require('./routes/jirehAdmin.js'));
