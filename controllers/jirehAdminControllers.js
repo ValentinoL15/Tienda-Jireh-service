@@ -61,11 +61,11 @@ const login = async(req,res) => {
         const normalizedEmail = email.toLowerCase();
         const adminExist = await AdminModel.findOne({ email: normalizedEmail }).select('+password')
 
-        if(!adminExist) return res.status(400).json({ message: 'El administrador no existe' })
+        if(!adminExist) return res.status(400).send({ message: 'El Email proporcionado no existe' })
         
         const passwordMatch = await bcrypt.compare(password, adminExist.password)
 
-        if(!passwordMatch) return res.status(400).json({ message: 'Contraseña incorrecta' })
+        if(!passwordMatch) return res.status(400).send({ message: 'Contraseña incorrecta' })
 
         const token = jwt.sign({ id: adminExist._id, rol: adminExist.rol }, process.env.JWT_SECRET_KEY, { expiresIn: "2h" })
 
@@ -170,8 +170,28 @@ const createShoe = async (req, res) => {
         });        
         if (shoeExist) return res.status(400).json({ message: 'El tenis ya existe' });
 
-        if(!name || !gender || !brand || !material || !type || !req.file) {
-            return res.status(400).json({ message: 'Por favor, complete todos los campos' });
+        if (!name) {
+            return res.status(400).json({ message: 'El campo "Nombre" es obligatorio' });
+        }
+        
+        if (!gender) {
+            return res.status(400).json({ message: 'El campo "Género" es obligatorio' });
+        }
+        
+        if (!brand) {
+            return res.status(400).json({ message: 'El campo "Marca" es obligatorio' });
+        }
+        
+        if (!material) {
+            return res.status(400).json({ message: 'El campo "Material" es obligatorio' });
+        }
+        
+        if (!type) {
+            return res.status(400).json({ message: 'El campo "Tipo" es obligatorio' });
+        }
+        
+        if (!req.file) {
+            return res.status(400).json({ message: 'El campo "Imagen" es obligatorio (debe subir un archivo)' });
         }
 
         let reference_id;

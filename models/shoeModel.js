@@ -12,7 +12,7 @@ const shoeSchema = mongoose.Schema(
         },
         gender: {
             type: String,
-            enum: ["Man", "Women", "Unisex", "Kids"],
+            enum: ["Hombre", "Mujer", "Unisex", "Niños", "Niñas"],
             required: true
         },
         material: {
@@ -38,7 +38,7 @@ const shoeSchema = mongoose.Schema(
         },
         brand: {
             type: String,
-            enum: ["Nike", "Adidas", "New Balance", "Reebok", "Topper"],
+            enum: ["Nike", "Adidas", "UnderArmour", "Reebok", "Dolce&Gabbana", "lecogSport", "Diesel"],
             required: true
         },
         image: {
