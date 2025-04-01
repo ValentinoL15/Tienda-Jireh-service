@@ -139,8 +139,12 @@ const resetPassword = async(req,res) => {
 //DONE
 const getShoes = async(req,res) => {
     try {
-        const shoes = await ShoeModel.find();
-        return res.status(200).json({ shoes });
+        const { skip, limit } = req.query
+        const total = await ShoeModel.countDocuments();
+        const shoes = await ShoeModel.find()
+        .limit(parseInt(limit))
+        .skip(parseInt(skip))
+        return res.status(200).json({ shoes,total  });
     } catch (error) {
         console.error('Error en /get-shoe:', error);
         return res.status(500).json({ message: 'Ocurrió un error obteniendo los tenis' });
@@ -305,7 +309,7 @@ const getSpecificShoe = async(req,res) => {
 const createSpecificShoe = async(req,res) => {
     try {
         const { id } = req.params;
-        const { size, color, quantity } = req.body;
+        const { size, color, stock } = req.body;
 
         if (!size || !color || !req.file) {
             return res.status(400).json({ message: 'Por favor, complete todos los campos' });
@@ -333,7 +337,7 @@ const createSpecificShoe = async(req,res) => {
             size,
             color,
             shoe_id: id,
-            quantity,
+            stock,
             image: result.url,
             public_id: result.public_id
         })
