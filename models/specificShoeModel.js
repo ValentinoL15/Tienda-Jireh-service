@@ -24,6 +24,10 @@ const specificShoeSchema = mongoose.Schema(
             type: Number,
             default: 0
         },
+        quantity: {
+            type: Number,
+            default: 0
+        },
         image: {
             type: String,
             required: true
@@ -31,14 +35,6 @@ const specificShoeSchema = mongoose.Schema(
         public_id: {
             type: String,
         },
-        discount: {
-            type: Boolean,
-            default: false
-        },
-        discountPercentage: {
-            type: Number,
-            default: 0
-        }
     },
     { 
         timestamps: true,

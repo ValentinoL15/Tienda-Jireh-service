@@ -18,6 +18,8 @@ router.post('/reset-password/:id', AdminControllers.resetPassword)
 
 router.get('/shoes', [isAuthenticated] ,AdminControllers.getShoes)
 
+router.get('/shoes-brand/:brand/:gender', [isAuthenticated], AdminControllers.getShoeBrand)
+
 router.get('/shoe/:id', [isAuthenticated] ,AdminControllers.getShoe)
 
 router.post('/create-shoe', [isAuthenticated ,isAdmin] , multerStorage.single('image') ,AdminControllers.createShoe)

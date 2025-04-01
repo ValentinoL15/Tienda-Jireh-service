@@ -148,10 +148,25 @@ const getShoes = async(req,res) => {
 }
 
 //DONE
+const getShoeBrand = async(req,res) => {
+    try {
+        const { brand, gender } = req.params
+        const shoes = await ShoeModel.find({ brand, gender });
+        if(!shoes) {
+            return res.status(404).json({ message: 'No hay tenis de esta marca'})
+        }
+        return res.status(200).json({ shoes });
+    } catch (error) {
+        console.error('Error en /get-shoe-brand:', error);
+        return res.status(500).json({ message: 'Ocurrió un error obteniendo los tenis de esta marca' });
+    }
+}
+
+//DONE
 const getShoe = async(req,res) => {
     try {
         const { id } = req.params;
-        const shoe = await ShoeModel.findById(id);
+        const shoe = await ShoeModel.findById(id).populate({ path: 'shoes' })
         if(!shoe) return res.status(404).json({ message: 'Tenis no encontrado' });
         return res.status(200).json({ shoe });
     } catch (error) {
@@ -410,6 +425,7 @@ module.exports = {
     resetPassword,
     createShoe,
     getShoes,
+    getShoeBrand,
     getShoe,
     updateShoe,
     deleteShoe,
