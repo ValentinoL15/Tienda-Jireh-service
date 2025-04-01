@@ -13,11 +13,11 @@ const specificShoeSchema = mongoose.Schema(
         },
         stock: {
             type: Number,
-            required: true
+            required: false
         },
         color: {
             type: String,
-            enum: ['White', 'Black', 'Red', 'Blue', 'Green', 'Yellow', 'Pink', 'Purple', 'Orange', 'Brown', 'Gray', 'Beige', 'Other'],
+            enum: ['Blanco', 'Negro', 'Rojo', 'Azul', 'Verde', 'Amarillo', 'Rosa', 'Violeta', 'Naranja', 'Marron', 'Gris', 'Beige'],
             required: true
         },
         sales: {
@@ -25,6 +25,10 @@ const specificShoeSchema = mongoose.Schema(
             default: 0
         },
         quantity: {
+            type: Number,
+            default: 0
+        },
+        stock: {
             type: Number,
             default: 0
         },
