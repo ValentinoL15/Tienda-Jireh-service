@@ -139,13 +139,20 @@ const resetPassword = async (req, res) => {
 //DONE
 const getShoes = async (req, res) => {
     try {
-        const { skip, limit, brand, gender, type } = req.query;
+        const { skip, limit, brand, gender, type, reference_id } = req.query;
 
         // Construir el objeto de filtros dinámicamente
         const filters = {};
         if (brand) filters.brand = brand;
         if (gender) filters.gender = gender;
         if (type) filters.type = type;
+        if (req.query.reference_id) {
+            const searchTerm = req.query.reference_id.trim();
+            filters.reference_id = { 
+                $regex: `^${searchTerm}`, // ^ para que coincida desde el inicio del string
+                $options: 'i' // 'i' para case-insensitive (opcional)
+            };
+        }
 
         const total = await ShoeModel.countDocuments(filters);  // Contar los productos con los filtros
         const shoes = await ShoeModel.find(filters)  // Filtrar productos por los filtros
@@ -251,7 +258,8 @@ const createShoe = async (req, res) => {
             gender,
             brand,
             material,
-            price,
+            price: discount === 'true' ? price - (price * discount_percentage / 100) : price,
+            original_price: price,
             type,
             discount: discount === 'true',
             discount_percentage: discount === 'true' ? discount_percentage : 0,
@@ -301,10 +309,17 @@ const updateShoe = async (req, res) => {
         }
 
         // Si discount es false, asegurarse de que discount_percentage sea 0
-        if (updateFields.discount === false) {
-            updateFields.discount_percentage = 0;
+        if (updateFields.discount !== undefined) {
+            if (updateFields.discount === false) {
+                // Si se desactiva el descuento, restaurar el precio original
+                updateFields.price = shoe.original_price;
+                updateFields.discount_percentage = 0;
+            } else if (updateFields.discount === true && updateFields.discount_percentage !== undefined) {
+                // Si se activa el descuento, calcular el nuevo precio
+                const originalPrice = shoe.original_price;
+                updateFields.price = originalPrice - (originalPrice * updateFields.discount_percentage / 100);
+            }
         }
-
         // Si no hay cambios, no actualizar
         if (Object.keys(updateFields).length === 0) {
             return res.status(400).json({ message: 'No hay cambios para actualizar' });
@@ -344,9 +359,7 @@ const filterShoes = async (req, res) => {
     try {
         const filter = {};
 
-        if (req.query.brand) filter.brand = req.query.brand;
-        if (req.query.gender) filter.gender = req.query.gender;
-        if (req.query.type) filter.type = req.query.type;
+        if (req.query.reference_id) filter.reference_id = req.query.reference_id;
 
         const shoesFilter = await ShoeModel.find(filter);
         return res.status(200).json({ shoesFilter });
