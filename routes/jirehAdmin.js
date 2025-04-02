@@ -28,6 +28,8 @@ router.put('/update-shoe/:id', [isAuthenticated ,isAdmin] , AdminControllers.upd
 
 router.delete('/delete-shoe/:id', [isAuthenticated ,isAdmin] , AdminControllers.deleteShoe);
 
+router.get('/filter-shoes', [isAuthenticated], AdminControllers.filterShoes)
+
 ////////////////////////////////////////////SPECIFIC SHOES///////////////////////////////////////////////
 
 router.get('/specific-shoe/:id', [isAuthenticated] ,AdminControllers.getSpecificShoe)
