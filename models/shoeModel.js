@@ -23,6 +23,10 @@ const shoeSchema = mongoose.Schema(
             type: Number,
             required: true
         },
+        original_price: {
+            type: Number,
+            required: true
+        },
         discount: {
             type: Boolean,
             default: false

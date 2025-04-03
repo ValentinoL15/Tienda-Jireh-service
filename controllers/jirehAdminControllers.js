@@ -24,7 +24,7 @@ cloudinary.config({
 
 ////////////////////////////////////////REGISTRO & LOGIN DE ADMINISTRADOR/////////////////////////////////////////
 
-const register = async(req,res) => {
+const register = async (req, res) => {
     try {
         const { name, lastName, gender, phone, email, password } = req.body
 
@@ -32,7 +32,7 @@ const register = async(req,res) => {
 
         const admin_exist = await AdminModel.findOne({ email: emailLowerCase })
 
-        if(admin_exist) return res.status(400).json({ message: "El admin ya esta logueado" })
+        if (admin_exist) return res.status(400).json({ message: "El admin ya esta logueado" })
 
         const passwordHashed = bcrypt.hashSync(password, 10)
         const register = new AdminModel({
@@ -54,18 +54,18 @@ const register = async(req,res) => {
     }
 }
 
-const login = async(req,res) => {
+const login = async (req, res) => {
     try {
         const { email, password } = req.body;
 
         const normalizedEmail = email.toLowerCase();
         const adminExist = await AdminModel.findOne({ email: normalizedEmail }).select('+password')
 
-        if(!adminExist) return res.status(400).send({ message: 'El Email proporcionado no existe' })
-        
+        if (!adminExist) return res.status(400).send({ message: 'El Email proporcionado no existe' })
+
         const passwordMatch = await bcrypt.compare(password, adminExist.password)
 
-        if(!passwordMatch) return res.status(400).send({ message: 'Contraseña incorrecta' })
+        if (!passwordMatch) return res.status(400).send({ message: 'Contraseña incorrecta' })
 
         const token = jwt.sign({ id: adminExist._id, rol: adminExist.rol }, process.env.JWT_SECRET_KEY, { expiresIn: "2h" })
 
@@ -79,7 +79,7 @@ const login = async(req,res) => {
     }
 }
 
-const forgotPassword = async(req,res) => {
+const forgotPassword = async (req, res) => {
     try {
         const { email } = req.body
         const normalizedEmail = email.toLowerCase();
@@ -97,7 +97,7 @@ const forgotPassword = async(req,res) => {
         });
 
         await request.save();
-        await sendEmailPassword(id ,admin.email);
+        await sendEmailPassword(id, admin.email);
 
         return res.status(200).json({ message: 'Email enviado con éxito' })
 
@@ -110,16 +110,16 @@ const forgotPassword = async(req,res) => {
     }
 }
 
-const resetPassword = async(req,res) => {
+const resetPassword = async (req, res) => {
     try {
         const { id } = req.params;
-        
+
         const reset = await PasswordResetModel.findOne({ id });
-        if(!reset) return res.status(404).json({ message: 'Link no encontrado' });
+        if (!reset) return res.status(404).json({ message: 'Link no encontrado' });
 
         const normalaizedEmail = reset.email.toLowerCase();
         const adminFound = await AdminModel.findOne({ email: normalaizedEmail });
-        if(!adminFound) return res.status(404).json({ message: 'Admin no encontrado' });
+        if (!adminFound) return res.status(404).json({ message: 'Admin no encontrado' });
 
         const hashed = await bcrypt.hash(req.body.password, 10);
         await AdminModel.findByIdAndUpdate(adminFound._id, { password: hashed }, { new: true });
@@ -137,22 +137,58 @@ const resetPassword = async(req,res) => {
 ////////////////////////////////////////SHOE////////////////////////////////////////
 
 //DONE
-const getShoes = async(req,res) => {
+const getShoes = async (req, res) => {
     try {
-        const shoes = await ShoeModel.find();
-        return res.status(200).json({ shoes });
+        const { skip, limit, brand, gender, type, reference_id } = req.query;
+
+        // Construir el objeto de filtros dinámicamente
+        const filters = {};
+        if (brand) filters.brand = brand;
+        if (gender) filters.gender = gender;
+        if (type) filters.type = type;
+        if (req.query.reference_id) {
+            const searchTerm = req.query.reference_id.trim();
+            filters.reference_id = { 
+                $regex: `^${searchTerm}`, // ^ para que coincida desde el inicio del string
+                $options: 'i' // 'i' para case-insensitive (opcional)
+            };
+        }
+
+        const total = await ShoeModel.countDocuments(filters);  // Contar los productos con los filtros
+        const shoes = await ShoeModel.find(filters)  // Filtrar productos por los filtros
+            .limit(parseInt(limit))
+            .skip(parseInt(skip));
+
+        return res.status(200).json({ shoes, total });
     } catch (error) {
         console.error('Error en /get-shoe:', error);
         return res.status(500).json({ message: 'Ocurrió un error obteniendo los tenis' });
     }
+};
+
+
+
+//DONE
+const getShoeBrand = async (req, res) => {
+    try {
+        const { brand, gender } = req.params
+        const shoes = await ShoeModel.find({ brand, gender });
+        if (!shoes) {
+            return res.status(404).json({ message: 'No hay tenis de esta marca' })
+        }
+        return res.status(200).json({ shoes });
+    } catch (error) {
+        console.error('Error en /get-shoe-brand:', error);
+        return res.status(500).json({ message: 'Ocurrió un error obteniendo los tenis de esta marca' });
+    }
 }
 
 //DONE
-const getShoe = async(req,res) => {
+const getShoe = async (req, res) => {
     try {
         const { id } = req.params;
-        const shoe = await ShoeModel.findById(id);
-        if(!shoe) return res.status(404).json({ message: 'Tenis no encontrado' });
+        const shoe = await ShoeModel.findById(id).populate({ path: 'shoes' })
+        if (!shoe) return res.status(404).json({ message: 'Tenis no encontrado' });
         return res.status(200).json({ shoe });
     } catch (error) {
         console.error('Error en /get-shoe/:id:', error);
@@ -163,33 +199,41 @@ const getShoe = async(req,res) => {
 //DONE
 const createShoe = async (req, res) => {
     try {
-        const { name, gender, brand, material, type, price } = req.body;
-    
+        const { name, gender, brand, material, type, price, discount } = req.body;
+
+        let discount_percentage = 0;
+        if (discount === 'true' && req.body.discount_percentage) {
+            discount_percentage = parseFloat(req.body.discount_percentage);
+            if (isNaN(discount_percentage)) {
+                return res.status(400).json({ message: 'El porcentaje de descuento debe ser un número válido' });
+            }
+        }
+
         const shoeExist = await ShoeModel.findOne({
             name: { $regex: new RegExp(`^${name.trim()}$`, 'i') }
-        });        
+        });
         if (shoeExist) return res.status(400).json({ message: 'El tenis ya existe' });
 
         if (!name) {
             return res.status(400).json({ message: 'El campo "Nombre" es obligatorio' });
         }
-        
+
         if (!gender) {
             return res.status(400).json({ message: 'El campo "Género" es obligatorio' });
         }
-        
+
         if (!brand) {
             return res.status(400).json({ message: 'El campo "Marca" es obligatorio' });
         }
-        
+
         if (!material) {
             return res.status(400).json({ message: 'El campo "Material" es obligatorio' });
         }
-        
+
         if (!type) {
             return res.status(400).json({ message: 'El campo "Tipo" es obligatorio' });
         }
-        
+
         if (!req.file) {
             return res.status(400).json({ message: 'El campo "Imagen" es obligatorio (debe subir un archivo)' });
         }
@@ -206,7 +250,7 @@ const createShoe = async (req, res) => {
 
         const result = await cloudinary.v2.uploader.upload(req.file.path);
         if (!result) {
-            return res.status(400).json({message: 'Error al subir la imagen a Cloudinary'});
+            return res.status(400).json({ message: 'Error al subir la imagen a Cloudinary' });
         }
         const shoe = new ShoeModel({
             name,
@@ -214,8 +258,11 @@ const createShoe = async (req, res) => {
             gender,
             brand,
             material,
-            price,
+            price: discount === 'true' ? price - (price * discount_percentage / 100) : price,
+            original_price: price,
             type,
+            discount: discount === 'true',
+            discount_percentage: discount === 'true' ? discount_percentage : 0,
             image: result.url,
             public_Id: result.public_id
         });
@@ -230,39 +277,76 @@ const createShoe = async (req, res) => {
 };
 
 //DONE
-const updateShoe = async(req,res) => {
+const updateShoe = async (req, res) => {
     try {
         const { id } = req.params;
-        const { name, gender, material, price, type, brand } = req.body;
+        const { name, gender, material, price, type, discount, discount_percentage } = req.body;
 
-        const shoeExist = await ShoeModel.findOne({
-            name: { $regex: new RegExp(`^${name.trim()}$`, 'i') }
-        });        
-        if (shoeExist) return res.status(400).json({ message: 'El tenis con ese nombre ya existe, por favor pruebe con otro' });
-
+        // Buscar el tenis existente
         const shoe = await ShoeModel.findById(id);
         if (!shoe) return res.status(404).json({ message: 'Tenis no encontrado' });
-        if(name === shoe.name) return res.status(400).json({ message: 'Por favor, ingrese un nombre diferente' });
-        await ShoeModel.findByIdAndUpdate(id, { name, gender, material, price, type, brand }, { new: true });
+
+        // Validar si el nombre ya existe con el mismo género
+        if (name && name !== shoe.name) {
+            const shoeExist = await ShoeModel.findOne({
+                name: { $regex: new RegExp(`^${name.trim()}$`, 'i') },
+                gender
+            });
+            if (shoeExist) return res.status(400).json({ message: 'El tenis con ese nombre ya existe, por favor pruebe con otro' });
+        }
+
+        // Construir objeto de actualización dinámicamente
+        const updateFields = {};
+        Object.entries({ name, gender, material, price, type, discount, discount_percentage }).forEach(([key, value]) => {
+            if (value !== undefined && value !== null && value !== "") {
+                updateFields[key] = value;
+            }
+        });
+
+        // Convertir discount de string a boolean si existe
+        if (updateFields.discount !== undefined) {
+            updateFields.discount = updateFields.discount === 'true';
+        }
+
+        // Si discount es false, asegurarse de que discount_percentage sea 0
+        if (updateFields.discount !== undefined) {
+            if (updateFields.discount === false) {
+                // Si se desactiva el descuento, restaurar el precio original
+                updateFields.price = shoe.original_price;
+                updateFields.discount_percentage = 0;
+            } else if (updateFields.discount === true && updateFields.discount_percentage !== undefined) {
+                // Si se activa el descuento, calcular el nuevo precio
+                const originalPrice = shoe.original_price;
+                updateFields.price = originalPrice - (originalPrice * updateFields.discount_percentage / 100);
+            }
+        }
+        // Si no hay cambios, no actualizar
+        if (Object.keys(updateFields).length === 0) {
+            return res.status(400).json({ message: 'No hay cambios para actualizar' });
+        }
+
+        await ShoeModel.findByIdAndUpdate(id, updateFields, { new: true });
+
         return res.status(200).json({ message: 'Tenis editado con éxito' });
 
     } catch (error) {
         console.error('Error en /edit-shoe:', error);
         return res.status(500).json({ message: 'Ocurrió un error editando el tenis' });
     }
-}
+};
 
 //DONE
-const deleteShoe = async(req,res) => {
+const deleteShoe = async (req, res) => {
     try {
         const { id } = req.params;
         const shoe = await ShoeModel.findById(id);
         if (!shoe) return res.status(404).json({ message: 'Tenis no encontrado' });
-        if(shoe.public_id) {
+        if (shoe.public_id) {
             const result = await cloudinary.v2.uploader.destroy(shoe.public_id);
             if (result.result !== 'ok') {
                 return res.status(400).json({ message: 'Error al eliminar la imagen de Cloudinary' });
-        }};
+            }
+        };
         await ShoeModel.findByIdAndDelete(id);
         return res.status(200).json({ message: 'Tenis eliminado con éxito' });
     } catch (error) {
@@ -271,10 +355,25 @@ const deleteShoe = async(req,res) => {
     }
 }
 
+const filterShoes = async (req, res) => {
+    try {
+        const filter = {};
+
+        if (req.query.reference_id) filter.reference_id = req.query.reference_id;
+
+        const shoesFilter = await ShoeModel.find(filter);
+        return res.status(200).json({ shoesFilter });
+    } catch (error) {
+        console.error('Error en /filter-shoes:', error);
+        return res.status(500).json({ message: 'Ocurrió un error filtrando los tenis' });
+    }
+};
+
+
 ///////////////////////////////////////////////SPECIFIC-SHOE///////////////////////////////////////////////
 
 //DONE
-const getSpecificShoe = async(req,res) => {
+const getSpecificShoe = async (req, res) => {
     try {
         const { id } = req.params;
         const specificShoe = await SpecificShoeModel.findById(id);
@@ -287,35 +386,38 @@ const getSpecificShoe = async(req,res) => {
 }
 
 //DONE
-const createSpecificShoe = async(req,res) => {
+const createSpecificShoe = async (req, res) => {
     try {
         const { id } = req.params;
         const { size, color, stock } = req.body;
 
-        if (!size || !color || !stock || !req.file) {
+        if (!size || !color || !req.file) {
             return res.status(400).json({ message: 'Por favor, complete todos los campos' });
         }
-        
+
         const shoe = await ShoeModel.findById(id);
         if (!shoe) return res.status(404).json({ message: 'Tenis no encontrado' });
 
         const result = await cloudinary.v2.uploader.upload(req.file.path);
         if (!result) {
-            return res.status(400).json({message: 'Error al subir la imagen a Cloudinary'});
+            return res.status(400).json({ message: 'Error al subir la imagen a Cloudinary' });
         }
 
-        for (const specificShoeId of shoe.shoes) {
-            const existingShoe = await SpecificShoeModel.findById(specificShoeId);
-            if (existingShoe.size === Number(size) && existingShoe.color === color) {
-                return res.status(400).json({ message: 'Ya existe un tenis con ese tamaño y color' });
-            }
+        const existingShoe = await SpecificShoeModel.findOne({
+            shoe_id: id,
+            size: size,
+            color
+        });
+
+        if (existingShoe) {
+            return res.status(400).json({ message: 'Ya existe un tenis con ese tamaño y color' });
         }
-        
+
         const specificShoe = new SpecificShoeModel({
             size,
             color,
-            stock,
             shoe_id: id,
+            stock,
             image: result.url,
             public_id: result.public_id
         })
@@ -323,7 +425,7 @@ const createSpecificShoe = async(req,res) => {
         await specificShoe.save();
         shoe.shoes.push(specificShoe._id);
         await shoe.save();
-        return res.status(201).json({ message: 'Tenis creado correctamente'})
+        return res.status(201).json({ message: 'Tenis creado correctamente' })
 
     } catch (error) {
         console.error('Error en /create-specific-shoe:', error);
@@ -344,7 +446,7 @@ const updateSpecificShoe = async (req, res) => {
         let updatedFields = {};
 
         if (stock !== undefined && stock !== specificShoe.stock) {
-            updatedFields.stock = stock;
+            updatedFields.stock = Number(stock);
         }
 
         if (req.file) {
@@ -372,7 +474,7 @@ const updateSpecificShoe = async (req, res) => {
 };
 
 //DONE
-const deleteSpecificShoe = async(req,res) => {
+const deleteSpecificShoe = async (req, res) => {
     try {
         const { id } = req.params;
         const specificShoe = await SpecificShoeModel.findById(id);
@@ -381,19 +483,20 @@ const deleteSpecificShoe = async(req,res) => {
         const shoe = await ShoeModel.findOne({ _id: specificShoe.shoe_id });
         if (!shoe) return res.status(404).json({ message: 'Tenis no encontrado' });
 
-        if(specificShoe.public_id) {
+        if (specificShoe.public_id) {
             const result = await cloudinary.v2.uploader.destroy(specificShoe.public_id);
             if (result.result !== 'ok') {
                 return res.status(400).json({ message: 'Error al eliminar la imagen de Cloudinary' });
-        }};
+            }
+        };
 
-        for(const specificShoeId of shoe.shoes) {
-            if(specificShoeId.toString() === id) {
+        for (const specificShoeId of shoe.shoes) {
+            if (specificShoeId.toString() === id) {
                 shoe.shoes.pull(specificShoeId);
                 await shoe.save();
                 break;
+            }
         }
-    }
 
         await SpecificShoeModel.findByIdAndDelete(id);
         return res.status(200).json({ message: 'Tenis eliminado con éxito' });
@@ -403,16 +506,18 @@ const deleteSpecificShoe = async(req,res) => {
     }
 }
 
-module.exports = { 
+module.exports = {
     register,
     login,
     forgotPassword,
     resetPassword,
     createShoe,
     getShoes,
+    getShoeBrand,
     getShoe,
     updateShoe,
     deleteShoe,
+    filterShoes,
     createSpecificShoe,
     getSpecificShoe,
     updateSpecificShoe,
