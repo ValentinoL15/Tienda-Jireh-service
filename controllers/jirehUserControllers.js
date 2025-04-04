@@ -128,15 +128,25 @@ const resetPassword = async (req, res) => {
 
 /////////////////////////////////////////////////PRODUCTS////////////////////////////////////////////////////////////
 
-const get_products = async(req,res) =>{ 
+const get_products = async (req, res) => { 
   try {
-    const products = await ShoeModel.find()
-    return res.status(200).json({ products })
+    // Obtener valores de consulta y asegurarse de que son números válidos
+    const skip = parseInt(req.query.skip) || 0;
+    const limit = parseInt(req.query.limit) || 10; // Si no se pasa un límite, por defecto 10
+
+    // Ejecutar ambas consultas en paralelo para mejorar rendimiento
+    const [products, total] = await Promise.all([
+      ShoeModel.find().limit(limit).skip(skip),
+      ShoeModel.countDocuments()
+    ]);
+
+    return res.status(200).json({ products, total });
   } catch (error) {
-    console.log('Error/ get-products', error)
-    return res.status(500).send({message: 'Ocurrió un error al obtener los products' })
+    console.error('Error en GET /get_products:', error);
+    return res.status(500).json({ message: 'Ocurrió un error al obtener los productos' });
   }
-}
+};
+
 
 module.exports = {
   register,
