@@ -17,7 +17,9 @@ router.post('/reset-password/:id', UserControllers.resetPassword)
 
 router.get('/get_products', UserControllers.get_products)
 
-router.get('/get_products_by_gender/:brand/:gender', UserControllers.get_products_by_gender)
+router.get('/get_products_by_gender/:brand/:gender', UserControllers.get_products_by_gender);
+
+router.get('/get_product/:id', UserControllers.get_product)
 
 
 

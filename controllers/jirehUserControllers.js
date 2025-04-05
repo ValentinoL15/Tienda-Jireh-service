@@ -158,11 +158,23 @@ const get_products_by_gender = async (req, res) => {
   }
 }
 
+const get_product = async (req,res) => {
+  try {
+    const { id } = req.params;
+    const product = await ShoeModel.findById(id).populate({path: 'shoes'})
+    return res.status(200).json({ product });
+  } catch (error) {
+    console.error('Error en GET /get_product:', error);
+    return res.status(500).json({ message: 'Ocurrió un error al obtener el producto' });
+  }
+}
+
 module.exports = {
   register,
   login,
   forgotPassword,
   resetPassword,
   get_products,
-  get_products_by_gender
+  get_products_by_gender,
+  get_product
 };
