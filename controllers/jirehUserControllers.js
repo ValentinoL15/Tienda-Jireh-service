@@ -56,7 +56,7 @@ const login = async (req, res) => {
   try {
     const { email, password } = req.body
     const emailLowerCase = email.toLowerCase();
-    const userExist = await AdminModel.findOne({ email: emailLowerCase }).select('+password')
+    const userExist = await UserModel.findOne({ email: emailLowerCase }).select('+password')
     if(!userExist) {
       return res.status(400).json({ message: "El correo electrónico no existe, por favor intente con otro" })
     }
