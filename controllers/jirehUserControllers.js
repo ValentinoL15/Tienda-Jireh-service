@@ -58,7 +58,7 @@ const login = async (req, res) => {
     const emailLowerCase = email.toLowerCase();
     const userExist = await UserModel.findOne({ email: emailLowerCase }).select('+password')
     if(!userExist) {
-      return res.status(400).json({ message: "El correo electrónico no existe, por favor intente con otro" })
+      return res.status(400).json({ message: "El email no existe" })
     }
     const passwordMatch = await bcrypt.compare(password, userExist.password)
     if(!passwordMatch) {
