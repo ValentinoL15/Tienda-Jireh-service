@@ -56,16 +56,17 @@ const login = async (req, res) => {
   try {
     const { email, password } = req.body
     const emailLowerCase = email.toLowerCase();
-    const userExist = await AdminModel.findOne({ email: emailLowerCase }).select('+password')
+    const userExist = await UserModel.findOne({ email: emailLowerCase }).select('+password')
     if(!userExist) {
-      return res.status(400).json({ message: "El correo electrónico no existe, por favor intente con otro" })
+      return res.status(400).json({ message: "El email no existe" })
     }
     const passwordMatch = await bcrypt.compare(password, userExist.password)
     if(!passwordMatch) {
       return res.status(400).json({ message: "Contraseña incorrecta" })
     }
     const token = jwt.sign({ id: userExist._id, rol: userExist.rol }, process.env.JWT_SECRET_KEY, { expiresIn: "2h" })
-    res.status(200).json({ message: 'Bienvenido', token });
+    const name = userExist.name
+    res.status(200).json({ message: 'Bienvenido', token, name });
   } catch (error) {
     res.status(500).json({ error: 'Error al loguearse' });
   }

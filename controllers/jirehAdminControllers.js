@@ -403,15 +403,16 @@ const createSpecificShoe = async (req, res) => {
             return res.status(400).json({ message: 'Error al subir la imagen a Cloudinary' });
         }
 
-        const existingShoe = await SpecificShoeModel.find({
+        const existingShoe = await SpecificShoeModel.findOne({
             shoe_id: id,
-            size: size,
+            size,
             color
         });
-
+        
         if (existingShoe) {
-            return res.status(400).json({ message: 'Ya existe un tenis con ese tamaño y/o color' });
+            return res.status(400).json({ message: 'Ya existe un tenis con ese tamaño y color' });
         }
+        
 
         const specificShoe = new SpecificShoeModel({
             size,
