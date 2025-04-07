@@ -24,10 +24,6 @@ const specificShoeSchema = mongoose.Schema(
             type: Number,
             default: 0
         },
-        stock: {
-            type: Number,
-            default: 0
-        },
         image: {
             type: String,
             required: true

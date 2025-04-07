@@ -12,6 +12,7 @@ const InfoModel = require('../models/infoModel.js')
 const PasswordResetModel = require('../models/passwordResetModel.js')
 const ShoeModel = require('../models/shoeModel.js')
 const SpecificShoeModel = require('../models/specificShoeModel.js')
+const OrderModel = require('../models/orderModel.js')
 
 /////////////////////////////////////////IMPORTACIONES SECUNDARIAS////////////////////////////////////////
 cloudinary.config({
@@ -170,6 +171,82 @@ const get_product = async (req,res) => {
   }
 }
 
+/////////////////////////////////////////////////////////////////PAYMENTS///////////////////////////////////////////////////////////////
+const epayco = require('epayco-sdk-node')({
+  apiKey: process.env.EPAYCO_PUBLIC_KEY,
+  privateKey: process.env.EPAYCO_PRIVATE_KEY,
+  lang: 'ES',
+  test: true
+});
+const create_payment = async (req, res) => {
+  const { id } = req.params
+  const { user, orderItems, paymentMethod, totalAmount } = req.body;
+
+  const shoeSpecific = await SpecificShoeModel.findOne({ shoe_id : id })
+  if(!shoeSpecific){
+    return res.status(404).json({ message: 'No se encontró el producto' })
+  }
+
+  try {
+    // 1. Crear la orden en MongoDB
+    const newOrder = new OrderModel({
+      user : "67eea38555dc88f17442759b",
+      orderItems,
+      paymentMethod,
+      totalAmount,
+    });
+
+    const savedOrder = await newOrder.save();
+
+    // 2. Generar link de pago con ePayco
+    const epaycoPayload = {
+      public_key: process.env.EPAYCO_PUBLIC_KEY,
+      amount: totalAmount,
+      currency: 'COP',
+      name: 'Compra de zapatos',
+      description: 'Pago en ecommerce',
+      invoice: savedOrder._id.toString(),
+      extra1: user,
+      response: 'https://tienda-jireh-users.vercel.app/payment-response',
+      confirmation: 'https://tienda-jireh-service-production.up.railway.app/webhook',
+      test: 'true',
+      external: 'false',
+    };
+    
+    const checkoutUrl = `https://checkout.epayco.co/checkout.js?${new URLSearchParams(epaycoPayload)}`;
+    
+    res.status(200).json({ checkoutUrl });
+  } catch (error) {
+    console.error('Error creando orden', error);
+    res.status(500).json({ message: 'Error interno' });
+  }
+};
+
+//app.post('/api/orders/webhook'
+const webhook =  async (req, res) => {
+  const data = req.body;
+
+  try {
+    if (data.x_response === 'Aceptada') {
+      const orderId = data.x_id_invoice;
+
+      await OrderModel.findByIdAndUpdate(orderId, {
+        isPaid: true,
+        paidAt: new Date(),
+        transactionId: data.x_transaction_id,
+        status: 'processing',
+      });
+
+      console.log(`🟢 Pago confirmado para orden ${orderId}`);
+    }
+
+    res.sendStatus(200);
+  } catch (error) {
+    console.error('❌ Error en webhook:', error);
+    res.sendStatus(500);
+  }
+};
+
 module.exports = {
   register,
   login,
@@ -177,5 +254,7 @@ module.exports = {
   resetPassword,
   get_products,
   get_products_by_gender,
-  get_product
+  get_product,
+  create_payment,
+  webhook
 };
