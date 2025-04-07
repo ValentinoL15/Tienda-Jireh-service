@@ -205,7 +205,7 @@ const create_payment = async (req, res) => {
       currency: 'COP',
       amount: totalAmount,
       country: 'CO',
-      response: 'https://tienda-jireh-users.vercel.app/payment-response',
+      response: 'https://tienda-jireh-service-production.up.railway.app/payment-response',
       confirmation: 'https://tienda-jireh-service-production.up.railway.app/webhook'
     });
   } catch (error) {
