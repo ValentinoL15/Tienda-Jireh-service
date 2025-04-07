@@ -239,6 +239,51 @@ const webhook =  async (req, res) => {
   }
 };
 
+const verify = async (req, res) => {
+  try {
+    const { ref_payco } = req.query;
+
+    const epaycoResponse = await axios.get(`https://secure.epayco.co/validation/v1/reference/${ref_payco}`, {
+      headers: {
+        'Authorization': `Bearer ${process.env.EPAYCO_PRIVATE_KEY}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    // Procesar la respuesta de ePayco
+    const paymentData = epaycoResponse.data.data;
+    
+    res.json({
+      success: true,
+      status: paymentData.x_response,
+      message: paymentData.x_response_reason_text,
+      data: paymentData
+    });
+  } catch (error) {
+    console.error('Error verifying payment:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al verificar el pago'
+    });
+  }
+};
+
+// Esta ruta sería opcional, solo si necesitas procesar algo en el backend antes de redirigir
+/*router.get('/payment-response', async (req, res) => {
+  try {
+    const { ref_payco, x_ref_payco, x_response } = req.query;
+    
+    // Aquí puedes validar el pago con ePayco si lo necesitas
+    console.log('Datos de respuesta:', req.query);
+    
+    // Redirige al frontend con los parámetros
+    res.redirect(`https://tienda-jireh-users.vercel.app/payment-response?ref_payco=${ref_payco}`);
+  } catch (error) {
+    console.error('Error en payment-response:', error);
+    res.redirect('https://tienda-jireh-users.vercel.app/payment-response?error=1');
+  }
+});*/
+
 module.exports = {
   register,
   login,
@@ -248,5 +293,6 @@ module.exports = {
   get_products_by_gender,
   get_product,
   create_payment,
-  webhook
+  webhook,
+  verify
 };
