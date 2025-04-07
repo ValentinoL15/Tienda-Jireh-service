@@ -21,6 +21,12 @@ router.get('/get_products_by_gender/:brand/:gender', UserControllers.get_product
 
 router.get('/get_product/:id', UserControllers.get_product)
 
+///////////////////////////////////////////////////PAYMENTS/////////////////////////////////////////
+
+router.post('/create_payment/:id', UserControllers.create_payment);
+
+router.post('/webhook', UserControllers.webhook)
+
 
 
 

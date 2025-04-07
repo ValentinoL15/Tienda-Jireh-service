@@ -50,6 +50,11 @@ const userSchema = mongoose.Schema(
         discountPercentage: {
             type: Number,
             default: 0
+        },
+        carrito: {
+            type: [mongoose.Schema.Types.ObjectId],
+            ref: 'SpecificShoeModel',
+            default: []
         }
     }
 )
