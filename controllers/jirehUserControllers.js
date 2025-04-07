@@ -197,25 +197,17 @@ const create_payment = async (req, res) => {
     });
 
     const savedOrder = await newOrder.save();
-
-    // 2. Generar link de pago con ePayco
-    const epaycoPayload = {
-      public_key: process.env.EPAYCO_PUBLIC_KEY,
-      amount: totalAmount,
-      currency: 'COP',
+    
+    res.status(200).json({
       name: 'Compra de zapatos',
       description: 'Pago en ecommerce',
       invoice: savedOrder._id.toString(),
-      extra1: user,
+      currency: 'COP',
+      amount: totalAmount,
+      country: 'CO',
       response: 'https://tienda-jireh-users.vercel.app/payment-response',
-      confirmation: 'https://tienda-jireh-service-production.up.railway.app/webhook',
-      test: 'true',
-      external: 'false',
-    };
-    
-    const checkoutUrl = `https://checkout.epayco.co/checkout.js?${new URLSearchParams(epaycoPayload)}`;
-    
-    res.status(200).json({ checkoutUrl });
+      confirmation: 'https://tienda-jireh-service-production.up.railway.app/webhook'
+    });
   } catch (error) {
     console.error('Error creando orden', error);
     res.status(500).json({ message: 'Error interno' });
