@@ -1,6 +1,7 @@
 const userRegister = async(req,res, next) => {
   try {
-    const { name, lastName, gender, address, numberAddress, phone, email, password,  } = req.body
+    const { name, lastName, gender, city ,address, numberAddress, phone, email, password,  } = req.body
+    
     if(!name){
       return res.status(400).json({ message: "El nombre es requerido" })
     }
@@ -12,6 +13,9 @@ const userRegister = async(req,res, next) => {
     }
     if(!address){
       return res.status(400).json({ message: "La dirección es requerida" })
+    }
+    if(!city){ 
+      return res.status(400).json({ message: "La ciudad es requerida" })
     }
     if(!numberAddress){
       return res.status(400).json({ message: "El número de dirección es requerido"})

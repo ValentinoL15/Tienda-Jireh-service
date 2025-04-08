@@ -12,11 +12,15 @@ const userSchema = mongoose.Schema(
         },
         gender: {
             type: String,
-            enum: ["Man", "Woman"],
+            enum: ["Hombre", "Mujer"],
             required: true
         },
         phone: {
             type: Number,
+            required: true
+        },
+        city: {
+            type: String,
             required: true
         },
         address: {
@@ -50,11 +54,6 @@ const userSchema = mongoose.Schema(
         discountPercentage: {
             type: Number,
             default: 0
-        },
-        carrito: {
-            type: [mongoose.Schema.Types.ObjectId],
-            ref: 'SpecificShoeModel',
-            default: []
         }
     }
 )
