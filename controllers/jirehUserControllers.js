@@ -247,24 +247,20 @@ const verify = async (req, res) => {
   try {
     const { ref_payco } = req.query;
 
-    const epaycoResponse = await axios.get(`https://secure.epayco.co/validation/v1/reference/${ref_payco}`, {
-      headers: {
-        'Authorization': `Bearer ${process.env.EPAYCO_PRIVATE_KEY}`,
-        'Content-Type': 'application/json'
-      }
-    });
+    const epaycoResponse = await axios.get(`https://secure.epayco.co/validation/v1/reference/${ref_payco}`);
 
-    // Procesar la respuesta de ePayco
     const paymentData = epaycoResponse.data.data;
-    
+
+    console.log('Respuesta de ePayco:', paymentData); // 👈 Log para debug
+
     res.json({
       success: true,
-      status: paymentData.x_response,
-      message: paymentData.x_response_reason_text,
+      status: paymentData?.x_response,
+      message: paymentData?.x_response_reason_text,
       data: paymentData
     });
   } catch (error) {
-    console.error('Error verifying payment:', error);
+    console.error('Error verifying payment:', error?.response?.data || error.message);
     res.status(500).json({
       success: false,
       message: 'Error al verificar el pago'
