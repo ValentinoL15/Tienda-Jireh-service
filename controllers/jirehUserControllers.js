@@ -6,6 +6,8 @@ const crypto = require('crypto-js');
 const shortid = require('short-uuid');
 const cloudinary = require('cloudinary');
 
+const axios = require('axios');
+
 ///////////////////////////////////////////IMPORTACIONES DE MODELOS///////////////////////////////////////
 const UserModel = require('../models/userModel.js')
 const InfoModel = require('../models/infoModel.js')
@@ -25,19 +27,21 @@ cloudinary.config({
 
 const register = async (req, res) => {
   try {
-    const { name, lastName, gender, address, numberAddress, phone, email, password } = req.body
+    const { name, lastName, gender, city ,address, numberAddress, phone, email, password } = req.body
     const emailLowerCase = email.toLowerCase()
     const info = await InfoModel.findOne()
     const userExist = await UserModel.findOne({ email: emailLowerCase })
     if (userExist) {
       return res.status(400).json({ message: "El correo electrónico ya existe" })
     }
+
     const passwordHashed = bcrypt.hashSync(password, 10)
     
     const register = new UserModel({
       name,
       lastName,
       gender,
+      city,
       address,
       numberAddress,
       phone,
@@ -47,9 +51,10 @@ const register = async (req, res) => {
     await register.save()
     info.clients.push(register._id)
     await info.save()
-    res.status(201).json({ message: 'Usuario registrado correctamente' });
+    return res.status(201).json({ message: 'Usuario registrado correctamente' });
   } catch (error) {
-    res.status(500).json({ error: 'Error registering user' });
+    res.status(500).json({ message: 'Error registering user' });
+    console.log(error)
   }
 };
 
@@ -205,7 +210,7 @@ const create_payment = async (req, res) => {
       currency: 'COP',
       amount: totalAmount,
       country: 'CO',
-      response: 'https://tienda-jireh-users.vercel.app/#/payment-response',
+      response: 'https://tienda-jireh-users.vercel.app/payment-response',
       confirmation: 'https://tienda-jireh-service-production.up.railway.app/webhook'
     });
   } catch (error) {
@@ -214,7 +219,6 @@ const create_payment = async (req, res) => {
   }
 };
 
-//app.post('/api/orders/webhook'
 const webhook =  async (req, res) => {
   const data = req.body;
 
@@ -238,8 +242,6 @@ const webhook =  async (req, res) => {
     res.sendStatus(500);
   }
 };
-
-const axios = require('axios');
 
 const verify = async (req, res) => {
   try {
@@ -296,5 +298,5 @@ module.exports = {
   get_product,
   create_payment,
   webhook,
-  verify
+  verify,
 };

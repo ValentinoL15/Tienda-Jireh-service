@@ -23,11 +23,12 @@ router.get('/get_product/:id', UserControllers.get_product)
 
 ///////////////////////////////////////////////////PAYMENTS/////////////////////////////////////////
 
-router.post('/create_payment/:id', UserControllers.create_payment);
+router.post('/create_payment/:id', [isAuthenticated] , UserControllers.create_payment);
 
-router.get('/verify', UserControllers.verify)
+router.get('/verify', [isAuthenticated] , UserControllers.verify)
 
 router.post('/webhook', UserControllers.webhook)
+
 
 
 
