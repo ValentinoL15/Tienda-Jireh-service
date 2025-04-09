@@ -54,6 +54,11 @@ const userSchema = mongoose.Schema(
         discountPercentage: {
             type: Number,
             default: 0
+        },
+        orders: {
+            type: [mongoose.Schema.Types.ObjectId],
+            ref: 'OrderModel',
+            default: []
         }
     }
 )

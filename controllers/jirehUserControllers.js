@@ -133,6 +133,20 @@ const resetPassword = async (req, res) => {
   }
 }
 
+const get_user = async(req,res) => {
+  try {
+    const userId = req.userId
+    const user = await UserModel.findOne({ _id : userId })
+    if(!user) return res.status(404).json({ message: 'Usuario no encontrado'})
+    return res.status(200).json({ user })
+  } catch (error) {
+    console.log('Error/ get_user', error)
+    return res.status(500).send({
+      message: 'Ocurrió un error obteniendo el usuario'
+      });
+  }
+}
+
 /////////////////////////////////////////////////PRODUCTS////////////////////////////////////////////////////////////
 
 const get_products = async (req, res) => { 
@@ -295,4 +309,5 @@ module.exports = {
   create_payment,
   webhook,
   verify,
+  get_user
 };

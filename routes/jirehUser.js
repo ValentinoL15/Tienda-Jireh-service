@@ -13,6 +13,8 @@ router.post('/forgot-password', UserControllers.forgotPassword)
 
 router.post('/reset-password/:id', UserControllers.resetPassword)
 
+  router.get('/get_user', [isAuthenticated], UserControllers.get_user)
+
 //////////////////////////////////////////////////SHOES///////////////////////////////////////////////
 
 router.get('/get_products',UserControllers.get_products)
