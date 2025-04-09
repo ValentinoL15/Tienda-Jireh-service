@@ -27,7 +27,7 @@ router.get('/get_product/:id', UserControllers.get_product)
 
 router.post('/create_payment', [isAuthenticated] , UserControllers.create_payment);
 
-router.get('/verify', UserControllers.verify)
+router.get('/verify', [isAuthenticated] , UserControllers.verify)
 
 router.post('/webhook', UserControllers.webhook)
 
