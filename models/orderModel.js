@@ -7,8 +7,12 @@ const orderSchema = mongoose.Schema(
       ref: 'UserModel',
       required: true
     },
+    reference_id: {
+      type: String,
+      required: true
+    },
     orderItems: 
-      {
+      [{
         product: {
           type: mongoose.Schema.Types.ObjectId,
           ref: 'SpecificShoeModel',
@@ -22,7 +26,7 @@ const orderSchema = mongoose.Schema(
           type: Number,
           required: true
         }
-      }
+      }]
     ,
     paymentMethod: {
       type: String, 

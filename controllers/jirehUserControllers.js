@@ -18,16 +18,16 @@ const OrderModel = require('../models/orderModel.js')
 
 /////////////////////////////////////////IMPORTACIONES SECUNDARIAS////////////////////////////////////////
 cloudinary.config({
-    cloud_name: process.env.CLOUD_NAME,
-    api_key: process.env.CLOUD_KEY,
-    api_secret: process.env.CLOUD_API_SECRET
+  cloud_name: process.env.CLOUD_NAME,
+  api_key: process.env.CLOUD_KEY,
+  api_secret: process.env.CLOUD_API_SECRET
 })
 
 ////////////////////////////////////////REGISTRO & LOGIN DE USUARIO/////////////////////////////////////////
 
 const register = async (req, res) => {
   try {
-    const { name, lastName, gender, city ,address, numberAddress, phone, email, password } = req.body
+    const { name, lastName, gender, city, address, numberAddress, phone, email, password } = req.body
     const emailLowerCase = email.toLowerCase()
     const info = await InfoModel.findOne()
     const userExist = await UserModel.findOne({ email: emailLowerCase })
@@ -36,7 +36,7 @@ const register = async (req, res) => {
     }
 
     const passwordHashed = bcrypt.hashSync(password, 10)
-    
+
     const register = new UserModel({
       name,
       lastName,
@@ -63,93 +63,94 @@ const login = async (req, res) => {
     const { email, password } = req.body
     const emailLowerCase = email.toLowerCase();
     const userExist = await UserModel.findOne({ email: emailLowerCase }).select('+password')
-    if(!userExist) {
+    if (!userExist) {
       return res.status(400).json({ message: "El email no existe" })
     }
     const passwordMatch = await bcrypt.compare(password, userExist.password)
-    if(!passwordMatch) {
+    if (!passwordMatch) {
       return res.status(400).json({ message: "Contraseña incorrecta" })
     }
     const token = jwt.sign({ id: userExist._id, rol: userExist.rol }, process.env.JWT_SECRET_KEY, { expiresIn: "2h" })
     const name = userExist.name
-    res.status(200).json({ message: 'Bienvenido', token, name });
+    return res.status(200).json({ message: 'Bienvenido', token, name });
   } catch (error) {
-    res.status(500).json({ error: 'Error al loguearse' });
+    return res.status(500).json({ error: 'Error al loguearse' });
+    console.log(error)
   }
 };
 
 const forgotPassword = async (req, res) => {
   try {
-      const { email } = req.body
-      const normalizedEmail = email.toLowerCase();
-      const user = await UserModel.findOne({ email: normalizedEmail });
+    const { email } = req.body
+    const normalizedEmail = email.toLowerCase();
+    const user = await UserModel.findOne({ email: normalizedEmail });
 
-      if (!user) {
-          return res.status(404).send({ message: 'Usuario no encontrado' });
-      }
+    if (!user) {
+      return res.status(404).send({ message: 'Usuario no encontrado' });
+    }
 
-      const id = uuidv4()
+    const id = uuidv4()
 
-      const request = new PasswordResetModel({
-          id,
-          email: normalizedEmail
-      });
+    const request = new PasswordResetModel({
+      id,
+      email: normalizedEmail
+    });
 
-      await request.save();
-      await sendEmailPassword(id, user.email);
+    await request.save();
+    await sendEmailPassword(id, user.email);
 
-      return res.status(200).json({ message: 'Email enviado con éxito' })
+    return res.status(200).json({ message: 'Email enviado con éxito' })
 
   } catch (error) {
-      console.log('Error/ forgot-password', error)
+    console.log('Error/ forgot-password', error)
 
-      return res.status(500).send({
-          message: 'Ocurrió un error enviando el email'
-      });
+    return res.status(500).send({
+      message: 'Ocurrió un error enviando el email'
+    });
   }
 }
 
 const resetPassword = async (req, res) => {
   try {
-      const { id } = req.params;
+    const { id } = req.params;
 
-      const reset = await PasswordResetModel.findOne({ id });
-      if (!reset) return res.status(404).json({ message: 'Link no encontrado' });
+    const reset = await PasswordResetModel.findOne({ id });
+    if (!reset) return res.status(404).json({ message: 'Link no encontrado' });
 
-      const normalaizedEmail = reset.email.toLowerCase();
-      const userFound = await UserModel.findOne({ email: normalaizedEmail });
-      if (!userFound) return res.status(404).json({ message: 'Usuario no encontrado' });
+    const normalaizedEmail = reset.email.toLowerCase();
+    const userFound = await UserModel.findOne({ email: normalaizedEmail });
+    if (!userFound) return res.status(404).json({ message: 'Usuario no encontrado' });
 
-      const hashed = await bcrypt.hash(req.body.password, 10);
-      await UserModel.findByIdAndUpdate(userFound._id, { password: hashed }, { new: true });
-      await PasswordResetModel.findByIdAndDelete(reset._id);
-      return res.status(200).json({ message: 'Contraseña actualizada con éxito' });
+    const hashed = await bcrypt.hash(req.body.password, 10);
+    await UserModel.findByIdAndUpdate(userFound._id, { password: hashed }, { new: true });
+    await PasswordResetModel.findByIdAndDelete(reset._id);
+    return res.status(200).json({ message: 'Contraseña actualizada con éxito' });
 
   } catch (error) {
-      console.log('Error/ reset-password', error)
-      return res.status(500).send({
-          message: 'Ocurrió un error actualizando la contraseña'
-      });
+    console.log('Error/ reset-password', error)
+    return res.status(500).send({
+      message: 'Ocurrió un error actualizando la contraseña'
+    });
   }
 }
 
-const get_user = async(req,res) => {
+const get_user = async (req, res) => {
   try {
     const userId = req.userId
-    const user = await UserModel.findOne({ _id : userId })
-    if(!user) return res.status(404).json({ message: 'Usuario no encontrado'})
+    const user = await UserModel.findOne({ _id: userId })
+    if (!user) return res.status(404).json({ message: 'Usuario no encontrado' })
     return res.status(200).json({ user })
   } catch (error) {
     console.log('Error/ get_user', error)
     return res.status(500).send({
       message: 'Ocurrió un error obteniendo el usuario'
-      });
+    });
   }
 }
 
 /////////////////////////////////////////////////PRODUCTS////////////////////////////////////////////////////////////
 
-const get_products = async (req, res) => { 
+const get_products = async (req, res) => {
   try {
     // Obtener valores de consulta y asegurarse de que son números válidos
     const skip = parseInt(req.query.skip) || 0;
@@ -179,10 +180,10 @@ const get_products_by_gender = async (req, res) => {
   }
 }
 
-const get_product = async (req,res) => {
+const get_product = async (req, res) => {
   try {
     const { id } = req.params;
-    const product = await ShoeModel.findById(id).populate({path: 'shoes'})
+    const product = await ShoeModel.findById(id).populate({ path: 'shoes' })
     return res.status(200).json({ product });
   } catch (error) {
     console.error('Error en GET /get_product:', error);
@@ -198,26 +199,44 @@ const epayco = require('epayco-sdk-node')({
   test: true
 });
 const create_payment = async (req, res) => {
-  const { id } = req.params
+  const userId = req.userId
   const { user, orderItems, paymentMethod, totalAmount } = req.body;
 
-  const shoeSpecific = await SpecificShoeModel.findOne({ shoe_id : id })
-  if(!shoeSpecific){
-    return res.status(404).json({ message: 'No se encontró el producto' })
+  if (!orderItems) {
+    return res.status(400).json({ message: 'Falta la información de los productos (orderItems)' });
+  }
+  if (!paymentMethod) {
+    return res.status(400).json({ message: 'Falta el método de pago (paymentMethod)' });
+  }
+  if (!user) {
+    return res.status(400).json({ message: 'Falta la información del usuario (user)' });
+  }
+
+  for (const item of orderItems) {
+    const shoeExists = await SpecificShoeModel.find(item._id);
+    if (!shoeExists) {
+      return res.status(404).json({ message: `Producto con ID ${item._id} no encontrado` });
+    }
   }
 
   try {
-    // 1. Crear la orden en MongoDB
+    const generateReferenceId = () => {
+      const timestamp = Date.now(); // Milisegundos desde 1970
+      const randomNum = Math.floor(Math.random() * 100000); // 5 dígitos aleatorios
+      return `${timestamp}${randomNum}`;
+    };
+    const reference_id = generateReferenceId();
     const newOrder = new OrderModel({
-      user : "67eea38555dc88f17442759b",
+      user: userId,
+      reference_id,
       orderItems,
       paymentMethod,
       totalAmount,
     });
 
     const savedOrder = await newOrder.save();
-    
-    res.status(200).json({
+
+    return res.status(200).json({
       name: 'Compra de zapatos',
       description: 'Pago en ecommerce',
       invoice: savedOrder._id.toString(),
@@ -233,7 +252,7 @@ const create_payment = async (req, res) => {
   }
 };
 
-const webhook =  async (req, res) => {
+const webhook = async (req, res) => {
   const data = req.body;
 
   try {
@@ -250,7 +269,7 @@ const webhook =  async (req, res) => {
       console.log(`🟢 Pago confirmado para orden ${orderId}`);
     }
 
-    res.sendStatus(200);
+    return res.sendStatus(200);
   } catch (error) {
     console.error('❌ Error en webhook:', error);
     res.sendStatus(500);
@@ -260,18 +279,39 @@ const webhook =  async (req, res) => {
 const verify = async (req, res) => {
   try {
     const { ref_payco } = req.query;
+    const userId = req.userId
+
+    const user = await UserModel.findOne({ _id: userId })
+    if (!user) {
+      return res.status(404).json({ message: 'Usuario no encontrado' })
+    }
 
     const epaycoResponse = await axios.get(`https://secure.epayco.co/validation/v1/reference/${ref_payco}`);
 
     const paymentData = epaycoResponse.data.data;
 
+    const orderId = paymentData?.x_id_invoice;
+
+    if (!orderId) {
+      return res.status(400).json({ success: false, message: 'No se encontró el ID de la orden' });
+    }
+
+    // Buscamos la orden
+    const order = await OrderModel.findById(orderId);
+    if (!order) {
+      return res.status(404).json({ success: false, message: 'Orden no encontrada' });
+    }
+
+    // Agregamos la orden al usuario
+    if (!user.orders.includes(order._id)) {
+      user.orders.push(order._id);
+      await user.save(); // ¡Esto es seguro!
+    }
+
     console.log('Respuesta de ePayco:', paymentData); // 👈 Log para debug
 
-    res.json({
-      success: true,
-      status: paymentData?.x_response,
-      message: paymentData?.x_response_reason_text,
-      data: paymentData
+    return res.json({
+      success: true, status: paymentData?.x_response, message: paymentData?.x_response_reason_text, data: paymentData
     });
   } catch (error) {
     console.error('Error verifying payment:', error?.response?.data || error.message);
