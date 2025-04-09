@@ -319,6 +319,8 @@ const webhook = async (req, res) => {
     return res.sendStatus(500);
   }
 };
+
+
 const verify = async (req, res) => {
   try {
     const { ref_payco } = req.query;
@@ -330,14 +332,16 @@ const verify = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Referencia de pago no proporcionada' });
     }
 
+    // Buscar usuario por ID
     const user = await UserModel.findById(userId);
     if (!user) {
       return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
     }
 
+    // Llamar a ePayco para validar la referencia
     const epaycoResponse = await axios.get(`https://secure.epayco.co/validation/v1/reference/${ref_payco}`);
-
     const paymentData = epaycoResponse.data?.data;
+
     console.log('🔍 Datos recibidos de ePayco:', paymentData);
 
     if (!paymentData) {
@@ -350,16 +354,21 @@ const verify = async (req, res) => {
       return res.status(400).json({ success: false, message: 'No se encontró el ID de la orden en la respuesta de ePayco' });
     }
 
+    // Buscar orden en la base de datos
     const order = await OrderModel.findById(orderId);
     if (!order) {
       return res.status(404).json({ success: false, message: 'Orden no encontrada' });
     }
 
-    if (!user.orders.includes(order._id)) {
-      user.orders.push(order._id);
-      await user.save();
-    }
+    // Agregar la orden al usuario solo si no existe aún
+    await UserModel.updateOne(
+      { _id: userId },
+      { $addToSet: { orders: order._id } } // Evita duplicados y no revalida campos
+    );
 
+    console.log('🟢 Orden asociada al usuario con éxito');
+
+    // Respuesta final
     return res.json({
       success: true,
       status: paymentData?.x_response,
@@ -369,13 +378,15 @@ const verify = async (req, res) => {
 
   } catch (error) {
     console.error('❌ Error verifying payment:', error?.response?.data || error.message);
+
     return res.status(500).json({
       success: false,
       message: 'Error al verificar el pago',
-      error: error?.response?.data || error.message // Para debug
+      error: error?.response?.data || error.message
     });
   }
 };
+
 
 // Esta ruta sería opcional, solo si necesitas procesar algo en el backend antes de redirigir
 /*router.get('/payment-response', async (req, res) => {
