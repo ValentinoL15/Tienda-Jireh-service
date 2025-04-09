@@ -252,30 +252,73 @@ const create_payment = async (req, res) => {
   }
 };
 
+const isValidSignature = (data, privateKey) => {
+  const signatureString = `${data.x_cust_id_cliente}^${data.x_ref_payco}^${data.x_transaction_id}^${data.x_amount}^${data.x_currency_code}`;
+  const generatedSignature = crypto.createHash('sha256').update(signatureString + privateKey).digest('hex');
+  return generatedSignature === data.x_signature;
+};
+
+
 const webhook = async (req, res) => {
   const data = req.body;
 
   try {
-    if (data.x_response === 'Aceptada') {
-      const orderId = data.x_id_invoice;
+    console.log('📩 Webhook recibido:', data);
 
-      await OrderModel.findByIdAndUpdate(orderId, {
-        isPaid: true,
-        paidAt: new Date(),
-        transactionId: data.x_transaction_id,
-        status: 'processing',
-      });
+    // Validar firma
+    const isSignatureValid = isValidSignature(data, process.env.EPAYCO_PRIVATE_KEY);
+    if (!isSignatureValid) {
+      console.warn('⚠️ Firma inválida del webhook');
+      return res.sendStatus(403);
+    }
 
-      console.log(`🟢 Pago confirmado para orden ${orderId}`);
+    const orderId = data.x_id_invoice;
+    const transactionStatus = data.x_response;
+
+    if (!orderId) {
+      console.warn('⚠️ Webhook sin ID de orden');
+      return res.sendStatus(400);
+    }
+
+    const order = await OrderModel.findById(orderId);
+    if (!order) {
+      console.warn(`❌ Orden con ID ${orderId} no encontrada`);
+      return res.sendStatus(404);
+    }
+
+    // Manejo de diferentes estados
+    switch (transactionStatus) {
+      case 'Aceptada':
+        await OrderModel.findByIdAndUpdate(orderId, {
+          isPaid: true,
+          paidAt: new Date(),
+          transactionId: data.x_transaction_id,
+          status: 'processing',
+        });
+        console.log(`🟢 Pago confirmado para orden ${orderId}`);
+        break;
+
+      case 'Rechazada':
+        await OrderModel.findByIdAndUpdate(orderId, { status: 'rejected' });
+        console.log(`🔴 Pago rechazado para orden ${orderId}`);
+        break;
+
+      case 'Pendiente':
+        await OrderModel.findByIdAndUpdate(orderId, { status: 'pending' });
+        console.log(`🟡 Pago pendiente para orden ${orderId}`);
+        break;
+
+      default:
+        console.log(`⚪ Estado desconocido (${transactionStatus}) para orden ${orderId}`);
+        break;
     }
 
     return res.sendStatus(200);
   } catch (error) {
     console.error('❌ Error en webhook:', error);
-    res.sendStatus(500);
+    return res.sendStatus(500);
   }
 };
-
 const verify = async (req, res) => {
   try {
     const { ref_payco } = req.query;
@@ -312,7 +355,8 @@ const verify = async (req, res) => {
     console.log('Respuesta de ePayco:', paymentData); // 👈 Log para debug
 
     return res.json({
-      success: true, status: paymentData?.x_response, message: paymentData?.x_response_reason_text, data: paymentData
+      success: true,
+      data: paymentData
     });
   } catch (error) {
     console.error('Error verifying payment:', error?.response?.data || error.message);
