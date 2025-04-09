@@ -280,6 +280,7 @@ const verify = async (req, res) => {
   try {
     const { ref_payco } = req.query;
     const userId = req.userId
+    console.log('🟡 Verificando ref_payco:', ref_payco);
 
     const user = await UserModel.findOne({ _id: userId })
     if (!user) {
