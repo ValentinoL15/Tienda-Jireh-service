@@ -322,47 +322,57 @@ const webhook = async (req, res) => {
 const verify = async (req, res) => {
   try {
     const { ref_payco } = req.query;
-    const userId = req.userId
+    const userId = req.userId;
+
     console.log('🟡 Verificando ref_payco:', ref_payco);
 
-    const user = await UserModel.findOne({ _id: userId })
+    if (!ref_payco) {
+      return res.status(400).json({ success: false, message: 'Referencia de pago no proporcionada' });
+    }
+
+    const user = await UserModel.findById(userId);
     if (!user) {
-      return res.status(404).json({ message: 'Usuario no encontrado' })
+      return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
     }
 
     const epaycoResponse = await axios.get(`https://secure.epayco.co/validation/v1/reference/${ref_payco}`);
 
-    const paymentData = epaycoResponse.data.data;
+    const paymentData = epaycoResponse.data?.data;
+    console.log('🔍 Datos recibidos de ePayco:', paymentData);
+
+    if (!paymentData) {
+      return res.status(400).json({ success: false, message: 'No se recibieron datos de ePayco' });
+    }
 
     const orderId = paymentData?.x_id_invoice;
 
     if (!orderId) {
-      return res.status(400).json({ success: false, message: 'No se encontró el ID de la orden' });
+      return res.status(400).json({ success: false, message: 'No se encontró el ID de la orden en la respuesta de ePayco' });
     }
 
-    // Buscamos la orden
     const order = await OrderModel.findById(orderId);
     if (!order) {
       return res.status(404).json({ success: false, message: 'Orden no encontrada' });
     }
 
-    // Agregamos la orden al usuario
     if (!user.orders.includes(order._id)) {
       user.orders.push(order._id);
-      await user.save(); // ¡Esto es seguro!
+      await user.save();
     }
-
-    console.log('Respuesta de ePayco:', paymentData); // 👈 Log para debug
 
     return res.json({
       success: true,
+      status: paymentData?.x_response,
+      message: paymentData?.x_response_reason_text,
       data: paymentData
     });
+
   } catch (error) {
-    console.error('Error verifying payment:', error?.response?.data || error.message);
-    res.status(500).json({
+    console.error('❌ Error verifying payment:', error?.response?.data || error.message);
+    return res.status(500).json({
       success: false,
-      message: 'Error al verificar el pago'
+      message: 'Error al verificar el pago',
+      error: error?.response?.data || error.message // Para debug
     });
   }
 };
