@@ -21,7 +21,7 @@ const isAuthenticated = async (req, res, next) => {
     } catch (error) {
         console.log('Error de Autenticación', error);
 
-        res.status(401).json({
+        return res.status(401).json({
             message: 'Ocurrió un error validando el token',
             error
         });
