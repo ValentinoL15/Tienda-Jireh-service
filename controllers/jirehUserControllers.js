@@ -375,7 +375,7 @@ const verify = async (req, res) => {
       return res.status(400).json({ success: false, message: 'No se encontró el ID de la orden en la respuesta de ePayco' });
     }
 
-    const order = await OrderModel.findOne({ reference_id: referenceId });
+    const order = await OrderModel.findOne({ _id : referenceId });
     if (!order) {
       return res.status(404).json({ success: false, message: 'Orden no encontrada' });
     }
