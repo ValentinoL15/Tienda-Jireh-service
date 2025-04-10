@@ -269,7 +269,7 @@ const isValidSignature = (data, privateKey) => {
 
 
 const webhook = async (req, res) => {
-  const data = req.body.data;
+  const data = req.body;
   const privateKey = process.env.EPAYCO_PRIVATE_KEY;
 
   try {
