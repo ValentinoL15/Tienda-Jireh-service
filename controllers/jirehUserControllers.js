@@ -249,8 +249,10 @@ const create_payment = async (req, res) => {
 
     const savedOrder = await newOrder.save();
     usuario.orders.push(savedOrder._id)
-    await usuario.save()
-
+    await UserModel.updateOne(
+      { _id: userId },
+      { $push: { orders: savedOrder._id } }
+    );
     return res.status(200).json({
       name: 'Compra de zapatos',
       description: 'Pago en ecommerce',
