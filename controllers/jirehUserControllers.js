@@ -301,7 +301,7 @@ const webhook = async (req, res) => {
           isPaid: true,
           paidAt: new Date(),
           transactionId: data.x_transaction_id,
-          status: 'processing',
+          status: 'Aceptada',
         });
         console.log(`🟢 Pago confirmado para orden ${orderId}`);
         break;
