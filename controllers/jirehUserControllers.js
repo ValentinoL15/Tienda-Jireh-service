@@ -227,6 +227,11 @@ const create_payment = async (req, res) => {
     }
   }
 
+  const usuario = await UserModel.findOne({ _id : userId })
+  if(!usuario){
+    return res.status(404).json({ message: 'El usuario no existe' })
+  }
+
   try {
     const generateReferenceId = () => {
       const timestamp = Date.now(); // Milisegundos desde 1970
@@ -243,6 +248,8 @@ const create_payment = async (req, res) => {
     });
 
     const savedOrder = await newOrder.save();
+    usuario.orders.push(savedOrder._id)
+    await usuario.save()
 
     return res.status(200).json({
       name: 'Compra de zapatos',
@@ -253,7 +260,7 @@ const create_payment = async (req, res) => {
       country: 'CO',
       response: 'https://tienda-jireh-users.vercel.app/payment-response',
       confirmation: 'https://tienda-jireh-service-production.up.railway.app/api/userJireh/webhook',
-       method_confirmation: 'POST', // << NECESARIO
+      method_confirmation: 'POST', // << NECESARIO
     });
   } catch (error) {
     console.error('Error creando orden', error);
@@ -274,23 +281,18 @@ const webhook = async (req, res) => {
   try {
     console.log('📩 Webhook recibido:', data);
 
-    // 1. Validar firma
     const reference = data.x_id_invoice;
     const orden = await OrderModel.findById(reference);
     if (!orden) {
       return res.status(404).send('Orden no encontrada');
     }
-    
-    orden.status = "Aceptada";
-    await orden.save();
-    
-    // Actualiza datos adicionales
+
     const transactionStatus = data.x_response;
     const updateData = {
       transactionId: data.x_transaction_id,
       paidAt: new Date(),
     };
-    
+
     switch (transactionStatus) {
       case 'Aceptada':
         updateData.status = 'Aceptada';
@@ -298,18 +300,29 @@ const webhook = async (req, res) => {
         break;
       case 'Rechazada':
         updateData.status = 'Rechazada';
+        updateData.isPaid = false;
         break;
       case 'Pendiente':
         updateData.status = 'Pendiente';
+        updateData.isPaid = false;
         break;
       default:
         updateData.status = transactionStatus || 'Desconocido';
+        updateData.isPaid = false;
         break;
     }
-    
-    await OrderModel.findByIdAndUpdate(orden._id, updateData);
-    console.log(`✅ Estado de orden actualizado: ${order._id} => ${updateData.status}`);
 
+    // Actualizamos la orden
+    const updatedOrder = await OrderModel.findByIdAndUpdate(orden._id, updateData, { new: true });
+
+    // Asegurarse de que la orden sigue estando en el usuario
+    const user = await UserModel.findById(updatedOrder.user);
+    if (user && !user.orders.includes(updatedOrder._id)) {
+      user.orders.push(updatedOrder._id);
+      await user.save();
+    }
+
+    console.log(`✅ Estado de orden actualizado: ${updatedOrder._id} => ${updatedOrder.status}`);
     res.sendStatus(200);
   } catch (error) {
     console.error('❌ Error procesando webhook:', error);
@@ -355,24 +368,8 @@ const verify = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Orden no encontrada' });
     }
 
-    // Actualizar estado de la orden
-    let updateFields = {
-      transactionId,
-      status: transactionStatus
-    };
-
-    if (transactionStatus === 'Aceptada') {
-      updateFields.isPaid = true;
-      updateFields.paidAt = new Date();
-    }
-
-    await OrderModel.findByIdAndUpdate(order._id, updateFields, { new: true });
 
     // Agregar la orden al usuario solo si no existe aún
-    await UserModel.updateOne(
-      { _id: userId },
-      { $addToSet: { orders: order._id } }
-    );
 
     console.log('🟢 Orden actualizada y asociada al usuario');
 
