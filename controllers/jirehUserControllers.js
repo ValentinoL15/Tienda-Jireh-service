@@ -207,7 +207,7 @@ const epayco = require('epayco-sdk-node')({
   test: true
 });
 const create_payment = async (req, res) => {
-  const userId = req.userId
+  const userId = req.userId;
   const { user, orderItems, paymentMethod, totalAmount } = req.body;
 
   if (!orderItems) {
@@ -229,10 +229,11 @@ const create_payment = async (req, res) => {
 
   try {
     const generateReferenceId = () => {
-      const timestamp = Date.now(); // Milisegundos desde 1970
-      const randomNum = Math.floor(Math.random() * 100000); // 5 dígitos aleatorios
+      const timestamp = Date.now();
+      const randomNum = Math.floor(Math.random() * 100000);
       return `${timestamp}${randomNum}`;
     };
+    
     const reference_id = generateReferenceId();
     const newOrder = new OrderModel({
       user: userId,
@@ -244,19 +245,42 @@ const create_payment = async (req, res) => {
 
     const savedOrder = await newOrder.save();
 
-    return res.status(200).json({
-      name: 'Compra de zapatos',
-      description: 'Pago en ecommerce',
-      invoice: savedOrder._id.toString(),
+    // Crear el pago en ePayco
+    const payment_info = {
+      token_card: req.body.token_card, // Necesario para pago con tarjeta
+      customer_id: req.body.customer_id, // Si tienes clientes registrados en ePayco
+      doc_type: user.docType || 'CC',
+      doc_number: user.docNumber || '123456789',
+      name: user.firstName,
+      last_name: user.lastName || 'Apellido',
+      email: user.email,
+      city: user.city || 'Bogota',
+      address: user.address || 'Calle falsa 123',
+      phone: user.phone || '3000000000',
+      cell_phone: user.cellPhone || '3000000000',
+      bill: savedOrder._id.toString(),
+      description: 'Compra de zapatos',
+      value: totalAmount.toString(),
+      tax: '0',
+      tax_base: totalAmount.toString(),
       currency: 'COP',
-      amount: totalAmount,
-      country: 'CO',
-      response: 'https://tienda-jireh-users.vercel.app/payment-response',
-      confirmation: 'https://tienda-jireh-service-production.up.railway.app/webhook'
+      dues: '1',
+      ip: req.ip || '190.000.000.000', // IP del cliente
+      url_response: 'https://tienda-jireh-users.vercel.app/payment-response',
+      url_confirmation: 'https://tienda-jireh-service-production.up.railway.app/webhook',
+      method_confirmation: 'POST',
+    };
+
+    const payment = await epayco.charge.create(payment_info);
+    
+    return res.status(200).json({
+      ...payment,
+      orderId: savedOrder._id.toString()
     });
+    
   } catch (error) {
-    console.error('Error creando orden', error);
-    res.status(500).json({ message: 'Error interno' });
+    console.error('Error creando orden o pago', error);
+    res.status(500).json({ message: 'Error interno', error: error.message });
   }
 };
 
@@ -375,7 +399,7 @@ const verify = async (req, res) => {
       return res.status(400).json({ success: false, message: 'No se encontró el ID de la orden en la respuesta de ePayco' });
     }
 
-    const order = await OrderModel.findOne({ _id : referenceId });
+    const order = await OrderModel.findOne({ _id  : referenceId });
     if (!order) {
       return res.status(404).json({ success: false, message: 'Orden no encontrada' });
     }
