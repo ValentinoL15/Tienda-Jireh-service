@@ -269,82 +269,65 @@ const isValidSignature = (data, privateKey) => {
 
 const webhook = async (req, res) => {
   const data = req.body;
+  const privateKey = process.env.EPAYCO_PRIVATE_KEY;
 
   try {
     console.log('📩 Webhook recibido:', data);
 
-    // Validar firma
-   /* const isSignatureValid = isValidSignature(data, process.env.EPAYCO_PRIVATE_KEY);
-    if (!isSignatureValid) {
-      console.warn('⚠️ Firma inválida del webhook');
-      return res.sendStatus(403);
-    }*/
-
-    const orderId = data.x_id_invoice;
-    await OrderModel.findByIdAndUpdate(orderId, {
-          isPaid: true,
-          paidAt: new Date(),
-          transactionId: data.x_transaction_id,
-          status: 'Aceptada',
-        }, { new: true });
-    const transactionStatus = data['x_response'] || data['x_respuesta'];
-
-    if (!orderId) {
-      console.warn('⚠️ Webhook sin ID de orden');
-      return res.sendStatus(400);
+    // 1. Validar firma
+    const validSignature = isValidSignature(data, privateKey);
+    if (!validSignature) {
+      console.warn('⚠️ Firma inválida');
+      return res.status(403).send('Invalid signature');
     }
 
-    const mongoose = require('mongoose');
+    const reference = data.x_invoice_id || data.x_id_invoice;
+    const transactionStatus = data.x_response;
 
-// Validar si el ID es válido
+    // 2. Buscar la orden
     let order = null;
 
-    if (mongoose.Types.ObjectId.isValid(data.x_id_invoice)) {
-      order = await OrderModel.findById(data.x_id_invoice);
+    if (mongoose.Types.ObjectId.isValid(reference)) {
+      order = await OrderModel.findById(reference);
     }
-    
-    // Si no se encuentra con findById, probá con otra búsqueda por `reference_id`
     if (!order) {
-      order = await OrderModel.findOne({ reference_id: data.x_id_invoice });
-    }
-    
-    if (!order) {
-      console.warn(`❌ Orden no encontrada con ID o referencia: ${data.x_id_invoice}`);
-      return res.sendStatus(404);
+      order = await OrderModel.findOne({ reference_id: reference });
     }
 
-    // Manejo de diferentes estados
+    if (!order) {
+      console.warn(`❌ Orden no encontrada: ${reference}`);
+      return res.status(404).send('Order not found');
+    }
+
+    // 3. Actualizar estado
+    const updateData = {
+      transactionId: data.x_transaction_id,
+      paidAt: new Date(),
+    };
+
     switch (transactionStatus) {
       case 'Aceptada':
-        const updateResult = await OrderModel.findByIdAndUpdate(orderId, {
-          isPaid: true,
-          paidAt: new Date(),
-          transactionId: data.x_transaction_id,
-          status: 'Aceptada',
-        }, { new: true });
-        
-        console.log('📝 Resultado de actualización:', updateResult);
+        updateData.status = 'Aceptada';
+        updateData.isPaid = true;
         break;
-
       case 'Rechazada':
-        await OrderModel.findByIdAndUpdate(orderId, { status: 'Rechazada' });
-        console.log(`🔴 Pago rechazado para orden ${orderId}`);
+        updateData.status = 'Rechazada';
         break;
-
       case 'Pendiente':
-        await OrderModel.findByIdAndUpdate(orderId, { status: 'Pendiente' });
-        console.log(`🟡 Pago pendiente para orden ${orderId}`);
+        updateData.status = 'Pendiente';
         break;
-
       default:
-        console.log(`⚪ Estado desconocido (${transactionStatus}) para orden ${orderId}`);
+        updateData.status = transactionStatus || 'Desconocido';
         break;
     }
 
-    return res.sendStatus(200);
+    await OrderModel.findByIdAndUpdate(order._id, updateData);
+    console.log(`✅ Estado de orden actualizado: ${order._id} => ${updateData.status}`);
+
+    res.sendStatus(200);
   } catch (error) {
-    console.error('❌ Error en webhook:', error);
-    return res.sendStatus(500 );
+    console.error('❌ Error procesando webhook:', error);
+    res.status(500).send('Internal server error');
   }
 };
 
