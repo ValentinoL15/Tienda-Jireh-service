@@ -260,12 +260,12 @@ const create_payment = async (req, res) => {
   }
 };
 
-const isValidSignature = (data, privateKey) => {
+/*const isValidSignature = (data, privateKey) => {
   const signatureString = `${data.x_cust_id_cliente}^${data.x_ref_payco}^${data.x_transaction_id}^${data.x_amount}^${data.x_currency_code}`;
   const generatedSignature = crypto.createHash('sha256').update(signatureString + privateKey).digest('hex');
   return generatedSignature === data.x_signature;
 };
-
+*/
 
 const webhook = async (req, res) => {
   const data = req.body;
@@ -273,12 +273,12 @@ const webhook = async (req, res) => {
   try {
     console.log('📩 Webhook recibido:', data);
 
-    // Validar firma
+/*
     const isSignatureValid = isValidSignature(data, process.env.EPAYCO_PRIVATE_KEY);
     if (!isSignatureValid) {
       console.warn('⚠️ Firma inválida del webhook');
       return res.sendStatus(403);
-    }
+    }*/
 
     const orderId = data.x_id_invoice;
     await OrderModel.findByIdAndUpdate(orderId, {
