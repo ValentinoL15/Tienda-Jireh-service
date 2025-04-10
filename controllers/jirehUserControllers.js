@@ -281,6 +281,13 @@ const webhook = async (req, res) => {
     }
 
     const orderId = data.x_id_invoice;
+    await OrderModel.findByIdAndUpdate(orderId, {
+      isPaid: true,
+      paidAt: new Date(),
+      transactionId: data.x_transaction_id,
+      status: 'Aceptada',
+    }, { new: true });
+    
     const transactionStatus = data['x_response'] || data['x_respuesta'];
 
     if (!orderId) {
