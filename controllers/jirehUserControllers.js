@@ -252,7 +252,8 @@ const create_payment = async (req, res) => {
       amount: totalAmount,
       country: 'CO',
       response: 'https://tienda-jireh-users.vercel.app/payment-response',
-      confirmation: 'https://tienda-jireh-service-production.up.railway.app/webhook'
+      confirmation: 'https://tienda-jireh-service-production.up.railway.app/webhook',
+       method_confirmation: 'POST', // << NECESARIO
     });
   } catch (error) {
     console.error('Error creando orden', error);
