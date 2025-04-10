@@ -249,15 +249,12 @@ const create_payment = async (req, res) => {
     const payment_info = {
       token_card: req.body.token_card, // Necesario para pago con tarjeta
       customer_id: req.body.customer_id, // Si tienes clientes registrados en ePayco
-      doc_type: user.docType,
-      doc_number: user.docNumber,
       name: user.firstName,
       last_name: user.lastName,
       email: user.email,
       city: user.city,
       address: user.address,
       phone: user.phone,
-      cell_phone: user.cellPhone,
       bill: savedOrder._id.toString(),
       description: 'Compra de zapatos',
       value: totalAmount.toString(),
