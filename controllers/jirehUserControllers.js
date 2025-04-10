@@ -28,18 +28,23 @@ cloudinary.config({
 const register = async (req, res) => {
   try {
     const { name, lastName, gender, city, address, numberAddress, phone, email, password } = req.body
-    const emailLowerCase = email.toLowerCase()
+    const emailLowerCase = email.toLowerCase().trim()
     const info = await InfoModel.findOne()
     const userExist = await UserModel.findOne({ email: emailLowerCase })
     if (userExist) {
       return res.status(400).json({ message: "El correo electrónico ya existe" })
     }
 
+    const numberAddressRegex = /^[a-zA-Z0-9\s\-\/]+$/;
+    if (!numberAddressRegex.test(numberAddress)) {
+      return res.status(400).json({ message: "El número de dirección es inválido" });
+    }
+
     const passwordHashed = bcrypt.hashSync(password, 10)
 
     const register = new UserModel({
-      name,
-      lastName,
+      name: name.trim(),
+      lastName: lastName.trim(),
       gender,
       city,
       address,
@@ -74,8 +79,8 @@ const login = async (req, res) => {
     const name = userExist.name
     return res.status(200).json({ message: 'Bienvenido', token, name });
   } catch (error) {
-    return res.status(500).json({ error: 'Error al loguearse' });
     console.log(error)
+    return res.status(500).json({ error: 'Error al loguearse' });
   }
 };
 
