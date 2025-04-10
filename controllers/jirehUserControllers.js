@@ -252,7 +252,7 @@ const create_payment = async (req, res) => {
       amount: totalAmount,
       country: 'CO',
       response: 'https://tienda-jireh-users.vercel.app/payment-response',
-      confirmation: 'https://tienda-jireh-service-production.up.railway.app/webhook',
+      confirmation: 'https://tienda-jireh-service-production.up.railway.app/api/userJireh/webhook',
        method_confirmation: 'POST', // << NECESARIO
     });
   } catch (error) {
@@ -266,11 +266,10 @@ const isValidSignature = (data, privateKey) => {
   const generatedSignature = crypto.createHash('sha256').update(signatureString + privateKey).digest('hex');
   return generatedSignature === data.x_signature;
 };
-
+const privateKey = process.env.EPAYCO_PRIVATE_KEY;
 
 const webhook = async (req, res) => {
   const data = req.body;
-  const privateKey = process.env.EPAYCO_PRIVATE_KEY;
 
   try {
     console.log('📩 Webhook recibido:', data);
