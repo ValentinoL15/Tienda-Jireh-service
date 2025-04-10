@@ -9,6 +9,7 @@ const { MICROSERVICE_NAME } = require('./utils/constants.js');
 const { connectToDatabase } = require('./db');
 
 app.use(express.json());
+app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.urlencoded({ extended: true })) // <-- esto reemplaza body-parser
 app.use(cors());
 
