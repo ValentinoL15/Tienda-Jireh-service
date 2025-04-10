@@ -269,55 +269,39 @@ const isValidSignature = (data, privateKey) => {
 
 
 const webhook = async (req, res) => {
-  const data = req.body;
-  const privateKey = process.env.EPAYCO_PRIVATE_KEY;
+  const {
+    x_ref_payco,
+    x_transaction_id,
+    x_invoice,
+    x_response
+  } = req.body;
 
-  try {
-    console.log('📩 Webhook recibido:', data);
+  console.log('🧾 Webhook recibido:', req.body); // para debug
 
-    // 1. Validar firma
-    const validSignature = isValidSignature(data, privateKey);
-    if (!validSignature) {
-      console.warn('⚠️ Firma inválida');
-      return res.status(403).send('Invalid signature');
+  // Ejemplo: Aceptada, Rechazada, etc.
+  if (x_response === 'Aceptada') {
+    try {
+      const order = await OrderModel.findById(x_invoice);
+      if (!order) {
+        return res.status(404).send('Orden no encontrada');
+      }
+
+      order.status = x_response;
+      order.transactionId = x_ref_payco;
+      order.isPaid = true;
+      order.paidAt = new Date();
+
+      await order.save();
+
+      console.log('✅ Orden actualizada');
+      return res.status(200).send('Webhook recibido');
+    } catch (error) {
+      console.error('❌ Error al actualizar la orden', error);
+      return res.status(500).send('Error actualizando la orden');
     }
-
-    const reference = data.x_id_invoice;
-    const orden = await OrderModel.findById(reference)
-    orden.status = "Aceptada"
-    await orden.save()
-
-    const transactionStatus = data.x_response;
-
-    // 3. Actualizar estado
-    const updateData = {
-      transactionId: data.x_transaction_id,
-      paidAt: new Date(),
-    };
-
-    switch (transactionStatus) {
-      case 'Aceptada':
-        updateData.status = 'Aceptada';
-        updateData.isPaid = true;
-        break;
-      case 'Rechazada':
-        updateData.status = 'Rechazada';
-        break;
-      case 'Pendiente':
-        updateData.status = 'Pendiente';
-        break;
-      default:
-        updateData.status = transactionStatus || 'Desconocido';
-        break;
-    }
-
-    await OrderModel.findByIdAndUpdate(order._id, updateData);
-    console.log(`✅ Estado de orden actualizado: ${order._id} => ${updateData.status}`);
-
-    res.sendStatus(200);
-  } catch (error) {
-    console.error('❌ Error procesando webhook:', error);
-    res.status(500).send('Internal server error');
+  } else {
+    console.log(`⚠️ Estado recibido: ${x_response}`);
+    return res.status(200).send('Estado no procesado');
   }
 };
 
