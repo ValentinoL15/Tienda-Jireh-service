@@ -270,13 +270,6 @@ const create_payment = async (req, res) => {
   }
 };
 
-const isValidSignature = (data, privateKey) => {
-  const signatureString = `${data.x_cust_id_cliente}^${data.x_ref_payco}^${data.x_transaction_id}^${data.x_amount}^${data.x_currency_code}`;
-  const generatedSignature = crypto.createHash('sha256').update(signatureString + privateKey).digest('hex');
-  return generatedSignature === data.x_signature;
-};
-const privateKey = process.env.EPAYCO_PRIVATE_KEY;
-
 const webhook = async (req, res) => {
   const data = req.body;
 
@@ -288,6 +281,7 @@ const webhook = async (req, res) => {
     if (!orden) {
       return res.status(404).send('Orden no encontrada');
     }
+    
 
     const transactionStatus = data.x_response;
     const updateData = {
@@ -317,6 +311,19 @@ const webhook = async (req, res) => {
     // Actualizamos la orden
     const updatedOrder = await OrderModel.findByIdAndUpdate(orden._id, updateData, { new: true });
 
+    if (transactionStatus === 'Aceptada') {
+      for (const item of updatedOrder.orderItems) {
+        const shoe = await SpecificShoeModel.findById(item.product);
+        if (shoe) {
+          shoe.stock = Math.max(shoe.stock - item.quantity, 0);
+          shoe.sales = shoe.sales + item.quantity;
+          await shoe.save();
+        } else {
+          console.warn(`⚠️ SpecificShoeModel con ID ${item.product} no encontrado.`);
+        }
+      }
+    }
+
     // Asegurarse de que la orden sigue estando en el usuario
     const user = await UserModel.findById(updatedOrder.user);
     if (user && !user.orders.includes(updatedOrder._id)) {
@@ -325,7 +332,7 @@ const webhook = async (req, res) => {
     }
 
     console.log(`✅ Estado de orden actualizado: ${updatedOrder._id} => ${updatedOrder.status}`);
-    res.sendStatus(200);
+    return res.sendStatus(200);
   } catch (error) {
     console.error('❌ Error procesando webhook:', error);
     res.status(500).send('Internal server error');
