@@ -249,15 +249,15 @@ const create_payment = async (req, res) => {
     const payment_info = {
       token_card: req.body.token_card, // Necesario para pago con tarjeta
       customer_id: req.body.customer_id, // Si tienes clientes registrados en ePayco
-      doc_type: user.docType || 'CC',
-      doc_number: user.docNumber || '123456789',
+      doc_type: user.docType,
+      doc_number: user.docNumber,
       name: user.firstName,
-      last_name: user.lastName || 'Apellido',
+      last_name: user.lastName,
       email: user.email,
-      city: user.city || 'Bogota',
-      address: user.address || 'Calle falsa 123',
-      phone: user.phone || '3000000000',
-      cell_phone: user.cellPhone || '3000000000',
+      city: user.city,
+      address: user.address,
+      phone: user.phone,
+      cell_phone: user.cellPhone,
       bill: savedOrder._id.toString(),
       description: 'Compra de zapatos',
       value: totalAmount.toString(),
@@ -265,7 +265,7 @@ const create_payment = async (req, res) => {
       tax_base: totalAmount.toString(),
       currency: 'COP',
       dues: '1',
-      ip: req.ip || '190.000.000.000', // IP del cliente
+      ip: req.ip, // IP del cliente
       url_response: 'https://tienda-jireh-users.vercel.app/payment-response',
       url_confirmation: 'https://tienda-jireh-service-production.up.railway.app/webhook',
       method_confirmation: 'POST',
