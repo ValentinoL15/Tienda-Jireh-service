@@ -297,13 +297,14 @@ const webhook = async (req, res) => {
     // Manejo de diferentes estados
     switch (transactionStatus) {
       case 'Aceptada':
-        await OrderModel.findByIdAndUpdate(orderId, {
+        const updateResult = await OrderModel.findByIdAndUpdate(orderId, {
           isPaid: true,
           paidAt: new Date(),
           transactionId: data.x_transaction_id,
           status: 'Aceptada',
-        });
-        console.log(`🟢 Pago confirmado para orden ${orderId}`);
+        }, { new: true });
+        
+        console.log('📝 Resultado de actualización:', updateResult);
         break;
 
       case 'Rechazada':
@@ -327,7 +328,6 @@ const webhook = async (req, res) => {
     return res.sendStatus(500);
   }
 };
-
 
 const verify = async (req, res) => {
   try {
