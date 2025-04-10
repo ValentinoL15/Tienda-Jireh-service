@@ -281,7 +281,7 @@ const webhook = async (req, res) => {
     }
 
     const orderId = data.x_id_invoice;
-    const transactionStatus = data.x_response;
+    const transactionStatus = data['x_response'] || data['x_respuesta'];
 
     if (!orderId) {
       console.warn('⚠️ Webhook sin ID de orden');
