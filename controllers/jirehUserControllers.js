@@ -247,8 +247,6 @@ const create_payment = async (req, res) => {
 
     // Crear el pago en ePayco
     const payment_info = {
-      token_card: req.body.token_card, // Necesario para pago con tarjeta
-      customer_id: req.body.customer_id, // Si tienes clientes registrados en ePayco
       name: user.firstName,
       last_name: user.lastName,
       email: user.email,
