@@ -288,24 +288,34 @@ const webhook = async (req, res) => {
       return res.sendStatus(400);
     }
 
-    const order = await OrderModel.findById(orderId);
+    const mongoose = require('mongoose');
+
+// Validar si el ID es válido
+    let order = null;
+
+    if (mongoose.Types.ObjectId.isValid(data.x_id_invoice)) {
+      order = await OrderModel.findById(data.x_id_invoice);
+    }
+    
+    // Si no se encuentra con findById, probá con otra búsqueda por `reference_id`
     if (!order) {
-      console.warn(`❌ Orden con ID ${orderId} no encontrada`);
+      order = await OrderModel.findOne({ reference_id: data.x_id_invoice });
+    }
+    
+    if (!order) {
+      console.warn(`❌ Orden no encontrada con ID o referencia: ${data.x_id_invoice}`);
       return res.sendStatus(404);
     }
 
     // Manejo de diferentes estados
     switch (transactionStatus) {
       case 'Aceptada':
-        const order = await OrderModel.findById(orderId);
-        if (order) {
-          order.isPaid = true;
-          order.paidAt = new Date();
-          order.transactionId = data.x_transaction_id;
-          order.status = 'Aceptada';
-          await order.save();
-          console.log('🧾 Orden actualizada con save():', order);
-        }
+        const updateResult = await OrderModel.findByIdAndUpdate(orderId, {
+          isPaid: true,
+          paidAt: new Date(),
+          transactionId: data.x_transaction_id,
+          status: 'Aceptada',
+        }, { new: true });
         
         console.log('📝 Resultado de actualización:', updateResult);
         break;
@@ -343,13 +353,11 @@ const verify = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Referencia de pago no proporcionada' });
     }
 
-    // Buscar usuario por ID
     const user = await UserModel.findById(userId);
     if (!user) {
       return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
     }
 
-    // Llamar a ePayco para validar la referencia
     const epaycoResponse = await axios.get(`https://secure.epayco.co/validation/v1/reference/${ref_payco}`);
     const paymentData = epaycoResponse.data?.data;
 
@@ -359,30 +367,43 @@ const verify = async (req, res) => {
       return res.status(400).json({ success: false, message: 'No se recibieron datos de ePayco' });
     }
 
-    const orderId = paymentData?.x_id_invoice;
+    const referenceId = paymentData?.x_id_invoice;
+    const transactionStatus = paymentData?.x_response;
+    const transactionId = paymentData?.x_transaction_id;
 
-    if (!orderId) {
+    if (!referenceId) {
       return res.status(400).json({ success: false, message: 'No se encontró el ID de la orden en la respuesta de ePayco' });
     }
 
-    // Buscar orden en la base de datos
-    const order = await OrderModel.findById(orderId);
+    const order = await OrderModel.findOne({ reference_id: referenceId });
     if (!order) {
       return res.status(404).json({ success: false, message: 'Orden no encontrada' });
     }
 
+    // Actualizar estado de la orden
+    let updateFields = {
+      transactionId,
+      status: transactionStatus
+    };
+
+    if (transactionStatus === 'Aceptada') {
+      updateFields.isPaid = true;
+      updateFields.paidAt = new Date();
+    }
+
+    await OrderModel.findByIdAndUpdate(order._id, updateFields, { new: true });
+
     // Agregar la orden al usuario solo si no existe aún
     await UserModel.updateOne(
       { _id: userId },
-      { $addToSet: { orders: order._id } } // Evita duplicados y no revalida campos
+      { $addToSet: { orders: order._id } }
     );
 
-    console.log('🟢 Orden asociada al usuario con éxito');
+    console.log('🟢 Orden actualizada y asociada al usuario');
 
-    // Respuesta final
     return res.json({
       success: true,
-      status: paymentData?.x_response,
+      status: transactionStatus,
       message: paymentData?.x_response_reason_text,
       data: paymentData
     });
@@ -397,6 +418,7 @@ const verify = async (req, res) => {
     });
   }
 };
+
 
 
 // Esta ruta sería opcional, solo si necesitas procesar algo en el backend antes de redirigir
