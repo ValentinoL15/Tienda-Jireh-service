@@ -282,23 +282,12 @@ const webhook = async (req, res) => {
       return res.status(403).send('Invalid signature');
     }
 
-    const reference = data.x_invoice_id || data.x_id_invoice;
+    const reference = data.x_id_invoice;
+    const orden = await OrderModel.findById(reference)
+    orden.status = "Aceptada"
+    await orden.save()
+
     const transactionStatus = data.x_response;
-
-    // 2. Buscar la orden
-    let order = null;
-
-    if (mongoose.Types.ObjectId.isValid(reference)) {
-      order = await OrderModel.findById(reference);
-    }
-    if (!order) {
-      order = await OrderModel.findOne({ reference_id: reference });
-    }
-
-    if (!order) {
-      console.warn(`❌ Orden no encontrada: ${reference}`);
-      return res.status(404).send('Order not found');
-    }
 
     // 3. Actualizar estado
     const updateData = {
