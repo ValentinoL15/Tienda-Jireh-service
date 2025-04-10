@@ -137,7 +137,15 @@ const resetPassword = async (req, res) => {
 const get_user = async (req, res) => {
   try {
     const userId = req.userId
-    const user = await UserModel.findOne({ _id: userId }).populate({ path: 'orders' })
+    const user = await UserModel.findOne({ _id: userId })  
+      .populate({
+      path: 'orders',
+      populate: {
+        path: 'orderItems.product',
+        model: 'SpecificShoeModel' // Asegurate que coincida con el nombre del modelo
+      }
+    });
+  
     if (!user) return res.status(404).json({ message: 'Usuario no encontrado' })
     return res.status(200).json({ user })
   } catch (error) {
