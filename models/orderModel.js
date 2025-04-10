@@ -34,7 +34,7 @@ const orderSchema = mongoose.Schema(
     },
     totalAmount: {
       type: Number,
-      required: true
+      required: false
     },
     isPaid: {
       type: Boolean,
