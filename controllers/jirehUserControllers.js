@@ -207,7 +207,7 @@ const epayco = require('epayco-sdk-node')({
   test: true
 });
 const create_payment = async (req, res) => {
-  const userId = req.userId;
+  const userId = req.userId
   const { user, orderItems, paymentMethod, totalAmount } = req.body;
 
   if (!orderItems) {
@@ -229,11 +229,10 @@ const create_payment = async (req, res) => {
 
   try {
     const generateReferenceId = () => {
-      const timestamp = Date.now();
-      const randomNum = Math.floor(Math.random() * 100000);
+      const timestamp = Date.now(); // Milisegundos desde 1970
+      const randomNum = Math.floor(Math.random() * 100000); // 5 dígitos aleatorios
       return `${timestamp}${randomNum}`;
     };
-    
     const reference_id = generateReferenceId();
     const newOrder = new OrderModel({
       user: userId,
@@ -245,37 +244,19 @@ const create_payment = async (req, res) => {
 
     const savedOrder = await newOrder.save();
 
-    // Crear el pago en ePayco
-    const payment_info = {
-      name: user.firstName,
-      last_name: user.lastName,
-      email: user.email,
-      city: user.city,
-      address: user.address,
-      phone: user.phone,
-      bill: savedOrder._id.toString(),
-      description: 'Compra de zapatos',
-      value: totalAmount.toString(),
-      tax: '0',
-      tax_base: totalAmount.toString(),
-      currency: 'COP',
-      dues: '1',
-      ip: req.ip, // IP del cliente
-      url_response: 'https://tienda-jireh-users.vercel.app/payment-response',
-      url_confirmation: 'https://tienda-jireh-service-production.up.railway.app/webhook',
-      method_confirmation: 'POST',
-    };
-
-    const payment = await epayco.charge.create(payment_info);
-    
     return res.status(200).json({
-      ...payment,
-      orderId: savedOrder._id.toString()
+      name: 'Compra de zapatos',
+      description: 'Pago en ecommerce',
+      invoice: savedOrder._id.toString(),
+      currency: 'COP',
+      amount: totalAmount,
+      country: 'CO',
+      response: 'https://tienda-jireh-users.vercel.app/payment-response',
+      confirmation: 'https://tienda-jireh-service-production.up.railway.app/webhook'
     });
-    
   } catch (error) {
-    console.error('Error creando orden o pago', error);
-    res.status(500).json({ message: 'Error interno', error: error.message });
+    console.error('Error creando orden', error);
+    res.status(500).json({ message: 'Error interno' });
   }
 };
 
