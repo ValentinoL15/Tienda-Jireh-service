@@ -308,12 +308,12 @@ const webhook = async (req, res) => {
         break;
 
       case 'Rechazada':
-        await OrderModel.findByIdAndUpdate(orderId, { status: 'rejected' });
+        await OrderModel.findByIdAndUpdate(orderId, { status: 'Rechazada' });
         console.log(`🔴 Pago rechazado para orden ${orderId}`);
         break;
 
       case 'Pendiente':
-        await OrderModel.findByIdAndUpdate(orderId, { status: 'pending' });
+        await OrderModel.findByIdAndUpdate(orderId, { status: 'Pendiente' });
         console.log(`🟡 Pago pendiente para orden ${orderId}`);
         break;
 
