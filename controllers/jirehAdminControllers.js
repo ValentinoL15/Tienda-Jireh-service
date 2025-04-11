@@ -12,6 +12,8 @@ const AdminModel = require('../models/adminModel.js')
 const PasswordResetModel = require('../models/passwordResetModel.js')
 const ShoeModel = require('../models/shoeModel.js')
 const SpecificShoeModel = require('../models/specificShoeModel.js')
+const OrdersModel = require('../models/orderModel.js')
+const UserModel = require('../models/userModel.js')
 
 /////////////////////////////////////////IMPORTACIONES SECUNDARIAS////////////////////////////////////////
 
@@ -507,6 +509,110 @@ const deleteSpecificShoe = async (req, res) => {
     }
 }
 
+///////////////////////////////////////////////DASHBOARD-INFO//////////////////////////////////////////////////////////
+
+const total_products = async(req,res) => {
+    try {
+        const shoes = await SpecificShoeModel.find()
+        if(!shoes){
+            return res.status(404).json({message: 'No hay productos en la base de datos'})
+        }
+        let shoeTotal = 0;
+        shoes.forEach((t) => {
+            shoeTotal += t.stock
+        })
+        return res.status(200).json({shoeTotal})
+    } catch (error) {
+        console.log(error)
+        return res.status(500).json({message: 'Ocurrió un error al obtener el total de productos'})
+    }
+}
+
+const total_orders = async(req,res) => {
+    try {
+        const totalDocuments = await OrdersModel.countDocuments();
+        return res.status(200).json({totalDocuments})
+    } catch (error) {
+        console.log(error)
+        return res.status(500).json({message: 'Ocurrió un error al obtener el total de pedidos'})
+    }
+}
+
+const total_users = async(req,res) => {
+    try {
+        const totalClients = await UserModel.countDocuments()
+        return res.status(200).json({totalClients})
+    } catch (error) {
+        console.log(error)
+        return res.status(500).json({message: 'Ocurrió un error al obtener el total de usuarios'})
+    }
+}
+
+const orders_status = async(req,res) => {
+    try {
+        const orders = await OrdersModel.find()
+        if(!orders){
+            return res.status(404).json({message: 'No hay pedidos en la base de datos'})
+        }
+        let pendingOrders = 0;
+        let acceptedOrders = 0;
+        let rejectedOrders = 0;
+        orders.forEach((p) => {
+            if(p.status === 'Aceptada') {
+                acceptedOrders++;
+            }
+            if(p.status === 'Pendiente') {
+                pendingOrders++;
+            }
+            if(p.status === 'Rechazada') {
+                rejectedOrders++;
+            }
+        })
+        return res.status(200).json({pendingOrders, acceptedOrders, rejectedOrders})
+    } catch (error) {
+        console.log(error)
+        return res.status(500).json({message: 'Ocurrió un error al obtener las ordenes'})
+    }
+}
+
+const ganancias = async(req,res) => {
+    try {
+        const orders = await OrdersModel.find()
+        if(!orders) {
+            return res.status(404).json({message: 'No hay pedidos en la base de datos'})
+        }
+        let totalGanancias = 0;
+        orders.forEach((g) => {
+            if(g.status === 'Aceptada') {
+                totalGanancias += g.totalAmount
+            }
+        })
+        return res.status(200).json({totalGanancias})
+    } catch (error) {
+        console.log(error)
+        return res.status(500).json({message: 'Ocurrió un error al obtener las ganancias'})
+    }
+}
+
+const orders = async(req,res) => {
+    try {
+        const orders = await OrdersModel.find().populate({
+            path: 'orderItems.product',
+            populate: {
+              path: 'shoe_id', // este es el campo dentro de SpecificShoeModel
+                model: 'ShoeModel'
+            }
+        })
+        if(!orders) {
+            return res.status(404).json({message: 'No hay pedidos en la base de datos' })
+        }
+        return res.status(200).json({ orders })
+    } catch (error) {
+        console.log(error)
+        return res.status(500).json({message: 'Ocurrió un error al obtener las ordenes'})
+    }
+}
+
 module.exports = {
     register,
     login,
@@ -522,5 +628,11 @@ module.exports = {
     createSpecificShoe,
     getSpecificShoe,
     updateSpecificShoe,
-    deleteSpecificShoe
+    deleteSpecificShoe,
+    total_products,
+    total_orders,
+    total_users,
+    orders_status,
+    ganancias,
+    orders
 }
