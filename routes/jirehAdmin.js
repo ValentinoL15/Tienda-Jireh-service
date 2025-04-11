@@ -40,4 +40,18 @@ router.put('/update-specific-shoe/:id', [isAuthenticated ,isAdmin], multerStorag
 
 router.delete('/delete-specific-shoe/:id', [isAuthenticated ,isAdmin] , AdminControllers.deleteSpecificShoe);
 
+/////////////////////////////////////////////////DASHBOARD/////////////////////////////////////////////////////
+
+router.get('/total-products', AdminControllers.total_products)
+
+router.get('/total-orders', AdminControllers.total_orders)
+
+router.get('/total-clients', AdminControllers.total_users)
+
+router.get('/status-orders', AdminControllers.orders_status)
+
+router.get('/ganancias', AdminControllers.ganancias)
+
+router.get('/orders', AdminControllers.orders)
+
 module.exports = router
