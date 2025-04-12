@@ -13,7 +13,7 @@ const specificShoeSchema = mongoose.Schema(
         },
         color: {
             type: String,
-            enum: ['Blanco', 'Negro', 'Rojo', 'Azul', 'Verde', 'Amarillo', 'Rosa', 'Violeta', 'Naranja', 'Marron', 'Gris', 'Beige'],
+            enum: ['#fcfcfc', '#0d0c0c', '#fc0303', '#051dfa', '#02700f', '#ffff00', '#fc03ec', '#fc8c03'],
             required: true
         },
         sales: {
