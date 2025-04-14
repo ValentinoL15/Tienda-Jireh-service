@@ -7,20 +7,51 @@ const specificShoeSchema = mongoose.Schema(
             ref: 'ShoeModel',
             required: true
         },
-        size: {
-            type: Number,
-            required: true
-        },
-        color: {
-            type: String,
-            enum: ['#fcfcfc', '#0d0c0c', '#fc0303', '#051dfa', '#02700f', '#ffff00', '#fc03ec', '#fc8c03'],
-            required: true
-        },
-        sales: {
+        talle_34: {
             type: Number,
             default: 0
         },
-        stock: {
+        talle_35: {
+            type: Number,
+            default: 0
+        },
+        talle_36: {
+            type: Number,
+            default: 0
+        },
+        talle_37: {
+            type: Number,
+            default: 0
+        },
+        talle_38: {
+            type: Number,
+            default: 0
+        },
+        talle_39: {
+            type: Number,
+            default: 0
+        },
+        talle_40: {
+            type: Number,
+            default: 0
+        },
+        talle_41: {
+            type: Number,
+            default: 0
+        },
+        talle_42: {
+            type: Number,
+            default: 0
+        },
+        talle_43: {
+            type: Number,
+            default: 0
+        },
+        talle_44: {
+            type: Number,
+            default: 0
+        },
+        sales: {
             type: Number,
             default: 0
         },
@@ -29,14 +60,14 @@ const specificShoeSchema = mongoose.Schema(
             required: true
         },
         public_id: {
-            type: String,
-        },
+            type: String
+        }
     },
     { 
         timestamps: true,
         versionKey: false 
     }
-)
+);
 
-const SpecificShoeModel = mongoose.model('SpecificShoeModel', specificShoeSchema)
-module.exports = SpecificShoeModel
+const SpecificShoeModel = mongoose.model('SpecificShoeModel', specificShoeSchema);
+module.exports = SpecificShoeModel;

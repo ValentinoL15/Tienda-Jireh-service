@@ -391,10 +391,10 @@ const getSpecificShoe = async (req, res) => {
 const createSpecificShoe = async (req, res) => {
     try {
         const { id } = req.params;
-        const { size, color, stock } = req.body;
+        const talles = req.body; // viene con campos como talle_38, talle_39, etc.
 
-        if (!size || !color || !req.file) {
-            return res.status(400).json({ message: 'Por favor, complete todos los campos' });
+        if (!req.file) {
+            return res.status(400).json({ message: 'Imagen requerida' });
         }
 
         const shoe = await ShoeModel.findById(id);
@@ -405,30 +405,45 @@ const createSpecificShoe = async (req, res) => {
             return res.status(400).json({ message: 'Error al subir la imagen a Cloudinary' });
         }
 
-        const existingShoe = await SpecificShoeModel.findOne({
-            shoe_id: id,
-            size,
-            color
-        });
-        
-        if (existingShoe) {
-            return res.status(400).json({ message: 'Ya existe un tenis con ese tamaño y color' });
+        // Crear objeto con campos válidos de talles
+        const stockTalles = {};
+        let hayStock = false;
+
+        for (let i = 34; i <= 44; i++) {
+            const key = `talle_${i}`;
+            const stock = parseInt(talles[key]);
+            if (!isNaN(stock) && stock > 0) {
+                stockTalles[key] = stock;
+                hayStock = true;
+            }
         }
-        
+
+        if (!hayStock) {
+            return res.status(400).json({ message: 'Debe ingresar al menos un talle con stock mayor a 0' });
+        }
+
+        // Verificar si ya existe un específico con los mismos talles para este modelo
+        const existing = await SpecificShoeModel.findOne({
+            shoe_id: id,
+            ...stockTalles
+        });
+
+        if (existing) {
+            return res.status(400).json({ message: 'Ya existe un tenis con esos talles para este modelo' });
+        }
 
         const specificShoe = new SpecificShoeModel({
-            size,
-            color,
             shoe_id: id,
-            stock,
             image: result.url,
-            public_id: result.public_id
-        })
+            public_id: result.public_id,
+            ...stockTalles
+        });
 
         await specificShoe.save();
         shoe.shoes.push(specificShoe._id);
         await shoe.save();
-        return res.status(201).json({ message: 'Tenis creado correctamente' })
+
+        return res.status(201).json({ message: 'Tenis creado correctamente', specificShoe });
 
     } catch (error) {
         console.error('Error en /create-specific-shoe:', error);
@@ -436,43 +451,41 @@ const createSpecificShoe = async (req, res) => {
     }
 };
 
+
 const updateSpecificShoe = async (req, res) => {
     try {
-        const { id } = req.params;
-        const { stock } = req.body;
+        const { id } = req.params; // ID del specific shoe a editar
+        const talles = req.body;
 
         const specificShoe = await SpecificShoeModel.findById(id);
         if (!specificShoe) {
             return res.status(404).json({ message: 'Tenis específico no encontrado' });
         }
 
-        let updatedFields = {};
+        let hayCambios = false;
 
-        if (stock !== undefined && stock !== specificShoe.stock) {
-            updatedFields.stock = Number(stock);
-        }
-
-        if (req.file) {
-            const result = await cloudinary.v2.uploader.upload(req.file.path);
-            if (!result) {
-                return res.status(400).json({ message: 'Error al subir la imagen a Cloudinary' });
+        // Actualizar talles del 34 al 44 si vienen en el body
+        for (let i = 34; i <= 44; i++) {
+            const key = `talle_${i}`;
+            if (key in talles) {
+                const nuevoValor = parseInt(talles[key]);
+                if (!isNaN(nuevoValor) && nuevoValor >= 0) {
+                    specificShoe[key] = nuevoValor;
+                    hayCambios = true;
+                }
             }
-            await cloudinary.v2.uploader.destroy(specificShoe.public_id);
-            updatedFields.image = result.url;
-            updatedFields.public_id = result.public_id;
         }
 
-        if (Object.keys(updatedFields).length === 0) {
-            return res.status(400).json({ message: 'No se detectaron cambios en los datos' });
+        if (!hayCambios) {
+            return res.status(400).json({ message: 'No se proporcionaron talles válidos para actualizar' });
         }
 
-        await SpecificShoeModel.findByIdAndUpdate(id, updatedFields, { new: true });
-
-        return res.status(200).json({ message: 'Tenis actualizado correctamente' });
+        await specificShoe.save();
+        return res.status(200).json({ message: 'Tenis actualizado correctamente', specificShoe });
 
     } catch (error) {
-        console.error('Error en /edit-specific-shoe:', error);
-        return res.status(500).json({ message: 'Ocurrió un error editando el tenis específico' });
+        console.error('Error en /update-specific-shoe:', error);
+        return res.status(500).json({ message: 'Error al actualizar el tenis específico' });
     }
 };
 
