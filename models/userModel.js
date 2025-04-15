@@ -43,17 +43,13 @@ const userSchema = mongoose.Schema(
             type: String,
             default: 'USER'
         },
-        bought: {
-            type: Number,
-            default: 0
-        },
-        discount: {
+        isMayorista: {
             type: Boolean,
             default: false
         },
-        discountPercentage: {
-            type: Number,
-            default: 0
+        verifyMayorista: {
+            type: Boolean,
+            default: false
         },
         orders: {
             type: [mongoose.Schema.Types.ObjectId],
