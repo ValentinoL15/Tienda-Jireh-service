@@ -28,7 +28,7 @@ cloudinary.config({
 
 const register = async (req, res) => {
     try {
-        const { name, lastName, gender, phone, email, password } = req.body
+        const { name, lastName, gender, phone, email, password, isMayorista } = req.body
 
         const emailLowerCase = email.toLowerCase();
 
@@ -41,6 +41,7 @@ const register = async (req, res) => {
             name,
             lastName,
             gender,
+            isMayorista,
             phone,
             email: emailLowerCase,
             password: passwordHashed

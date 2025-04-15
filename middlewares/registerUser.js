@@ -1,6 +1,6 @@
 const userRegister = async(req,res, next) => {
   try {
-    const { name, lastName, gender, city ,address, numberAddress, phone, email, password,  } = req.body
+    const { name, lastName, gender, city ,address, numberAddress, phone, email, password } = req.body
     
     if(!name){
       return res.status(400).json({ message: "El nombre es requerido" })
