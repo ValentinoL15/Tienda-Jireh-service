@@ -526,14 +526,11 @@ const deleteSpecificShoe = async (req, res) => {
 
 const total_products = async(req,res) => {
     try {
-        const shoes = await SpecificShoeModel.find()
-        if(!shoes){
+        const shoeTotal = await ShoeModel.countDocuments()
+        if(!shoeTotal){
             return res.status(404).json({message: 'No hay productos en la base de datos'})
         }
-        let shoeTotal = 0;
-        shoes.forEach((t) => {
-            shoeTotal += t.stock
-        })
+        
         return res.status(200).json({shoeTotal})
     } catch (error) {
         console.log(error)
