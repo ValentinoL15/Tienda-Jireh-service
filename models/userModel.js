@@ -45,7 +45,7 @@ const userSchema = mongoose.Schema(
         },
         isMayorista: {
             type: Boolean,
-            default: false
+            required: true
         },
         verifyMayorista: {
             type: Boolean,

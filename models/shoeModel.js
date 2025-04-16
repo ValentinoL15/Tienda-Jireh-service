@@ -23,6 +23,14 @@ const shoeSchema = mongoose.Schema(
             type: Number,
             required: true
         },
+        price_mayorista: {
+            type: Number,
+            required: true
+        },
+        percentage_mayorista: {
+            type: Number,
+            required: true
+        },
         original_price: {
             type: Number,
             required: true

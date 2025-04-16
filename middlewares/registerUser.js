@@ -1,6 +1,6 @@
 const userRegister = async(req,res, next) => {
   try {
-    const { name, lastName, gender, city ,address, numberAddress, phone, email, password } = req.body
+    const { name, lastName, gender, city ,address, numberAddress, phone, email, password , isMayorista} = req.body
     
     if(!name){
       return res.status(400).json({ message: "El nombre es requerido" })
@@ -22,6 +22,9 @@ const userRegister = async(req,res, next) => {
     }
     if(!phone){
       return res.status(400).json({ message: "El teléfono es requerido" })
+    }
+    if(!isMayorista) {
+      return res.status(400).json({ message: "Debe seleccionar si es mayorista o no" })
     }
     if(!email){
       return res.status(400).json({ message: "El correo electrónico es requerido" })

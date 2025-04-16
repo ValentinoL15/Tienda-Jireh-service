@@ -54,4 +54,12 @@ router.get('/ganancias', AdminControllers.ganancias)
 
 router.get('/orders', AdminControllers.orders)
 
+///////////////////////////////////////////////////////USUARIOS//////////////////////////////////////////////////////////
+
+router.get('/users', AdminControllers.users_mayoristas)
+
+router.post('/accept-mayorista', AdminControllers.accept_mayorista)
+
+router.post('/decline-mayorista', AdminControllers.decline_mayorista)
+
 module.exports = router

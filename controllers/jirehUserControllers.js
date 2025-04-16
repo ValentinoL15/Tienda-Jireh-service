@@ -27,7 +27,7 @@ cloudinary.config({
 
 const register = async (req, res) => {
   try {
-    const { name, lastName, gender, city, address, numberAddress, phone, email, password } = req.body
+    const { name, lastName, gender, city, address, numberAddress, phone, email, password, isMayorista } = req.body
     const emailLowerCase = email.toLowerCase().trim()
     const info = await InfoModel.findOne()
     const userExist = await UserModel.findOne({ email: emailLowerCase })
@@ -50,6 +50,7 @@ const register = async (req, res) => {
       address,
       numberAddress,
       phone,
+      isMayorista,
       email,
       password: passwordHashed,
     })

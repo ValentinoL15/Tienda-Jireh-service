@@ -28,7 +28,7 @@ cloudinary.config({
 
 const register = async (req, res) => {
     try {
-        const { name, lastName, gender, phone, email, password, isMayorista } = req.body
+        const { name, lastName, gender, phone, email, password } = req.body
 
         const emailLowerCase = email.toLowerCase();
 
@@ -41,7 +41,6 @@ const register = async (req, res) => {
             name,
             lastName,
             gender,
-            isMayorista,
             phone,
             email: emailLowerCase,
             password: passwordHashed
@@ -202,7 +201,7 @@ const getShoe = async (req, res) => {
 //DONE
 const createShoe = async (req, res) => {
     try {
-        const { name, gender, brand, material, type, price, discount } = req.body;
+        const { name, gender, brand, material, type, price, discount, percentage_mayorista } = req.body;
 
         let discount_percentage = 0;
         if (discount === 'true' && req.body.discount_percentage) {
@@ -262,6 +261,8 @@ const createShoe = async (req, res) => {
             brand,
             material,
             price: discount === 'true' ? price - (price * discount_percentage / 100) : price,
+            percentage_mayorista,
+            price_mayorista: price - (price * percentage_mayorista / 100),
             original_price: price,
             type,
             discount: discount === 'true',
@@ -283,13 +284,21 @@ const createShoe = async (req, res) => {
 const updateShoe = async (req, res) => {
     try {
         const { id } = req.params;
-        const { name, gender, material, price, type, discount, discount_percentage } = req.body;
+        const {
+            name,
+            gender,
+            material,
+            price,
+            type,
+            discount,
+            discount_percentage,
+            percentage_mayorista
+        } = req.body;
 
-        // Buscar el tenis existente
         const shoe = await ShoeModel.findById(id);
         if (!shoe) return res.status(404).json({ message: 'Tenis no encontrado' });
 
-        // Validar si el nombre ya existe con el mismo género
+        // Validación de nombre duplicado
         if (name && name !== shoe.name) {
             const shoeExist = await ShoeModel.findOne({
                 name: { $regex: new RegExp(`^${name.trim()}$`, 'i') },
@@ -298,32 +307,38 @@ const updateShoe = async (req, res) => {
             if (shoeExist) return res.status(400).json({ message: 'El tenis con ese nombre ya existe, por favor pruebe con otro' });
         }
 
-        // Construir objeto de actualización dinámicamente
         const updateFields = {};
-        Object.entries({ name, gender, material, price, type, discount, discount_percentage }).forEach(([key, value]) => {
+        Object.entries({ name, gender, material, price, type, discount, discount_percentage, percentage_mayorista }).forEach(([key, value]) => {
             if (value !== undefined && value !== null && value !== "") {
                 updateFields[key] = value;
             }
         });
 
-        // Convertir discount de string a boolean si existe
+        // Convertir discount a boolean
         if (updateFields.discount !== undefined) {
             updateFields.discount = updateFields.discount === 'true';
         }
 
-        // Si discount es false, asegurarse de que discount_percentage sea 0
+        // Descuento
         if (updateFields.discount !== undefined) {
             if (updateFields.discount === false) {
-                // Si se desactiva el descuento, restaurar el precio original
                 updateFields.price = shoe.original_price;
                 updateFields.discount_percentage = 0;
             } else if (updateFields.discount === true && updateFields.discount_percentage !== undefined) {
-                // Si se activa el descuento, calcular el nuevo precio
                 const originalPrice = shoe.original_price;
                 updateFields.price = originalPrice - (originalPrice * updateFields.discount_percentage / 100);
             }
         }
-        // Si no hay cambios, no actualizar
+
+        // Calcular price_mayorista si se actualiza el porcentaje
+        if (updateFields.percentage_mayorista !== undefined) {
+            const percentage = parseFloat(updateFields.percentage_mayorista);
+            if (isNaN(percentage)) {
+                return res.status(400).json({ message: 'El porcentaje mayorista debe ser un número válido' });
+            }
+            updateFields.price_mayorista = shoe.original_price - (shoe.original_price * percentage / 100);
+        }
+
         if (Object.keys(updateFields).length === 0) {
             return res.status(400).json({ message: 'No hay cambios para actualizar' });
         }
@@ -337,6 +352,7 @@ const updateShoe = async (req, res) => {
         return res.status(500).json({ message: 'Ocurrió un error editando el tenis' });
     }
 };
+
 
 //DONE
 const deleteShoe = async (req, res) => {
@@ -624,6 +640,55 @@ const orders = async(req,res) => {
     }
 }
 
+/********************************************************USUARIOS**********************************************************/ 
+
+const users_mayoristas = async(req,res) => {
+    try {
+        const users = await UserModel.find({ isMayorista: true })
+        if(!users) {
+            return res.status(404).json({message: 'No hay usuarios en la base de datos'})
+        }
+        return res.status(200).json({users})
+    } catch (error) {
+        console.log(error)
+        return res.status(500).json({message: 'Ocurrió un error al obtener los usuarios'})
+    }
+} 
+
+const accept_mayorista = async (req, res) => {
+    try {
+      const { _id } = req.body; // <-- CAMBIADO a body
+      const updatedUser = await UserModel.findByIdAndUpdate(_id, { verifyMayorista: true }, { new: true });
+  
+      if (!updatedUser) {
+        return res.status(404).json({ message: 'Usuario no encontrado' });
+      }
+  
+      return res.status(200).json({ message: 'Usuario verificado con éxito' });
+    } catch (error) {
+      console.log(error);
+      return res.status(500).json({ message: 'Ocurrió un error al aceptar el mayorista' });
+    }
+  };
+
+  const decline_mayorista = async(req,res) => {
+    try {
+        const { _id } = req.body;
+        const updatedUser = await UserModel.findByIdAndUpdate(_id, { verifyMayorista: false }, { new: true });
+        if (!updatedUser) {
+            return res.status(404).json({ message: 'Usuario no encontrado' });
+        }
+        
+        return res.status(200).json({ message: 'Verificación revocada con éxito' });
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({ message: 'Ocurrió un error al revocar el mayorista' });
+    }
+  }
+
+
+
+
 module.exports = {
     register,
     login,
@@ -645,5 +710,8 @@ module.exports = {
     total_users,
     orders_status,
     ganancias,
-    orders
+    orders,
+    users_mayoristas,
+    accept_mayorista,
+    decline_mayorista
 }
