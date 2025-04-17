@@ -25,6 +25,10 @@ const orderSchema = mongoose.Schema(
         price: {
           type: Number,
           required: true
+        },
+        selectedSize: {
+          type: Number,
+          required: true
         }
       }]
     ,
