@@ -34,7 +34,7 @@ const orderSchema = mongoose.Schema(
     ,
     paymentMethod: {
       type: String, 
-      default: "ePayco"
+      default: "Stripe"
     },
     totalAmount: {
       type: Number,

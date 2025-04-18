@@ -206,12 +206,7 @@ const get_product = async (req, res) => {
 }
 
 /////////////////////////////////////////////////////////////////PAYMENTS///////////////////////////////////////////////////////////////
-const epayco = require('epayco-sdk-node')({
-  apiKey: process.env.EPAYCO_PUBLIC_KEY,
-  privateKey: process.env.EPAYCO_PRIVATE_KEY,
-  lang: 'ES',
-  test: true
-});
+const stripe = require('stripe')('sk_test_51RFDmzPDNG2XzTXTXSMWurbl7bn9ovo97s8Ry8TQ74OBl5CwrHqQ98i1ImFQ1X6oUKcEXahThwTkF5cyyqmdeHBq004QcPRM1D')
 const create_payment = async (req, res) => {
   const userId = req.userId
   const { user, orderItems, paymentMethod, totalAmount } = req.body;
@@ -226,12 +221,18 @@ const create_payment = async (req, res) => {
     return res.status(400).json({ message: 'Falta la información del usuario (user)' });
   }
 
-  for (const item of orderItems) {
-    const shoeExists = await SpecificShoeModel.find(item._id);
-    if (!shoeExists) {
-      return res.status(404).json({ message: `Producto con ID ${item._id} no encontrado` });
-    }
+// Verificar productos
+for (const item of orderItems) {
+  const shoe = await SpecificShoeModel.findById(item.product);
+  if (!shoe) {
+    return res.status(404).json({ message: `Producto con ID ${item.product} no encontrado` });
   }
+  // Verificar stock por talla
+  const stockKey = `talle_${item.selectedSize}`;
+  if (shoe[stockKey] < item.quantity) {
+    return res.status(400).json({ message: `Stock insuficiente para talla ${item.selectedSize}` });
+  }
+}
 
   const usuario = await UserModel.findOne({ _id : userId })
   if(!usuario){
@@ -248,27 +249,55 @@ const create_payment = async (req, res) => {
     const newOrder = new OrderModel({
       user: userId,
       reference_id,
-      orderItems,
+      orderItems: orderItems.map(item => ({
+        product: item.product,
+        quantity: item.quantity,
+        price: item.price,
+        selectedSize: item.selectedSize
+      })),
       paymentMethod,
       totalAmount,
+      status: 'Pendiente'
+    });
+
+    // Crear sesión de Stripe
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      line_items: orderItems.map(item => ({
+        price_data: {
+          currency: 'usd', // Cambia a tu moneda
+          product_data: {
+            name: `Producto ${item.product}`, // Puedes obtener el nombre real desde SpecificShoeModel
+          },
+          unit_amount: Math.round(item.price * 100), // Precio en centavos
+        },
+        quantity: item.quantity,
+      })),
+      mode: 'payment',
+      ui_mode: 'embedded',
+      client_reference_id: reference_id,
+      customer_email: usuario.email,
+      metadata: {
+        orderId: newOrder._id.toString(),
+        userId: userId.toString()
+      },
+      return_url: 'https://tienda-jireh-users.vercel.app/payment-response?session_id={CHECKOUT_SESSION_ID}', // Cambia a tu dominio
+      //success_url: 'https://tienda-jireh-users.vercel.app/payment-response', // URL de éxito
+      //cancel_url: 'https://your-domain.com/cancel' // URL de cancelación
     });
 
     const savedOrder = await newOrder.save();
+
     usuario.orders.push(savedOrder._id)
     await UserModel.updateOne(
       { _id: userId },
       { $push: { orders: savedOrder._id } }
     );
+
     return res.status(200).json({
-      name: 'Compra de zapatos',
-      description: 'Pago en ecommerce',
-      invoice: savedOrder._id.toString(),
-      currency: 'COP',
-      amount: totalAmount,
-      country: 'CO',
-      response: 'https://tienda-jireh-users.vercel.app/payment-response',
-      confirmation: 'https://tienda-jireh-service-production.up.railway.app/api/userJireh/webhook',
-      method_confirmation: 'POST', // << NECESARIO
+      clientSecret: session.client_secret,
+      sessionId: session.id,
+      orderId: savedOrder._id
     });
   } catch (error) {
     console.error('Error creando orden', error);
@@ -276,132 +305,200 @@ const create_payment = async (req, res) => {
   }
 };
 
+const endpointSecret = 'whsec_L0Wf3GioVGknSqEtXGwHAzei1OZdA67u'; // Obtén esto desde el dashboard de Stripe
 const webhook = async (req, res) => {
-  const data = req.body;
+  const sig = req.headers['stripe-signature'];
+  let event;
+
+  // Verificar la firma del webhook
+  try {
+    event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
+    console.log('📩 Webhook recibido:', event.type);
+  } catch (err) {
+    console.error('❌ Error verificando webhook:', err.message);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
 
   try {
-    console.log('📩 Webhook recibido:', data);
+    // Manejar eventos específicos de Stripe
+    switch (event.type) {
+      case 'checkout.session.completed': {
+        const session = event.data.object;
+        const reference = session.client_reference_id;
 
-    const reference = data.x_id_invoice;
-    const orden = await OrderModel.findById(reference);
-    if (!orden) {
-      return res.status(404).send('Orden no encontrada');
-    }
-    
+        // Iniciar transacción
+        const dbSession = await mongoose.startSession();
+        dbSession.startTransaction();
 
-    const transactionStatus = data.x_response;
-    const updateData = {
-      transactionId: data.x_transaction_id,
-      paidAt: new Date(),
-    };
+        try {
+          // Buscar la orden
+          const orden = await OrderModel.findOne({ reference_id: reference }).session(dbSession);
+          if (!orden) {
+            console.warn(`⚠️ Orden con reference_id ${reference} no encontrada`);
+            await dbSession.abortTransaction();
+            return res.status(404).send('Orden no encontrada');
+          }
 
-    switch (transactionStatus) {
-      case 'Aceptada':
-        updateData.status = 'Aceptada';
-        updateData.isPaid = true;
-        break;
-      case 'Rechazada':
-        updateData.status = 'Rechazada';
-        updateData.isPaid = false;
-        break;
-      case 'Pendiente':
-        updateData.status = 'Pendiente';
-        updateData.isPaid = false;
-        break;
-      default:
-        updateData.status = transactionStatus || 'Desconocido';
-        updateData.isPaid = false;
-        break;
-    }
+          // Verificar si ya fue procesada (idempotencia)
+          if (orden.isPaid && orden.status === 'Aceptada') {
+            console.log(`ℹ️ Orden ${orden._id} ya procesada`);
+            await dbSession.commitTransaction();
+            return res.json({ received: true });
+          }
 
-    // Actualizamos la orden
-    const updatedOrder = await OrderModel.findByIdAndUpdate(orden._id, updateData, { new: true });
+          // Actualizar la orden
+          const updateData = {
+            transactionId: session.payment_intent,
+            paidAt: new Date(),
+            status: 'Aceptada',
+            isPaid: true
+          };
 
-    if (transactionStatus === 'Aceptada') {
-      for (const item of updatedOrder.orderItems) {
-        const shoe = await SpecificShoeModel.findById(item.product);
-        if (shoe) {
-          shoe.stock = Math.max(shoe.stock - item.quantity, 0);
-          shoe.sales = shoe.sales + item.quantity;
-          await shoe.save();
-        } else {
-          console.warn(`⚠️ SpecificShoeModel con ID ${item.product} no encontrado.`);
+          const updatedOrder = await OrderModel.findByIdAndUpdate(
+            orden._id,
+            updateData,
+            { new: true, session: dbSession }
+          );
+
+          // Actualizar stock y ventas
+          const validSizes = [34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44];
+          for (const item of updatedOrder.orderItems) {
+            if (!validSizes.includes(item.selectedSize)) {
+              console.warn(`⚠️ Talla inválida ${item.selectedSize} en orden ${orden._id}`);
+              continue;
+            }
+
+            const stockKey = `talle_${item.selectedSize}`;
+            const shoe = await SpecificShoeModel.findById(item.product).session(dbSession);
+            if (shoe) {
+              shoe[stockKey] = Math.max(shoe[stockKey] - item.quantity, 0);
+              shoe.sales = (shoe.sales || 0) + item.quantity;
+              await shoe.save({ session: dbSession });
+            } else {
+              console.warn(`⚠️ SpecificShoeModel con ID ${item.product} no encontrado`);
+            }
+          }
+
+          // Asegurarse de que la orden está en el usuario
+          const user = await UserModel.findById(updatedOrder.user).session(dbSession);
+          if (user && !user.orders.includes(updatedOrder._id)) {
+            user.orders.push(updatedOrder._id);
+            await user.save({ session: dbSession });
+          }
+
+          // Confirmar transacción
+          await dbSession.commitTransaction();
+          console.log(`✅ Estado de orden actualizado: ${updatedOrder._id} => ${updatedOrder.status}`);
+        } catch (error) {
+          await dbSession.abortTransaction();
+          console.error(`❌ Error actualizando orden: ${error.message}`);
+          throw error;
+        } finally {
+          dbSession.endSession();
         }
+        break;
       }
+
+      case 'checkout.session.expired': {
+        const session = event.data.object;
+        const reference = session.client_reference_id;
+
+        // Buscar la orden
+        const orden = await OrderModel.findOne({ reference_id: reference });
+        if (!orden) {
+          console.warn(`⚠️ Orden con reference_id ${reference} no encontrada`);
+          return res.status(404).send('Orden no encontrada');
+        }
+
+        // Actualizar estado a Rechazada
+        await OrderModel.findByIdAndUpdate(
+          orden._id,
+          { 
+            status: 'Rechazada',
+            isPaid: false 
+          },
+          { new: true }
+        );
+
+        console.log(`✅ Orden ${orden._id} marcada como Rechazada`);
+        break;
+      }
+
+      case 'checkout.session.async_payment_failed': {
+        const session = event.data.object;
+        const reference = session.client_reference_id;
+
+        // Buscar la orden
+        const orden = await OrderModel.findOne({ reference_id: reference });
+        if (!orden) {
+          console.warn(`⚠️ Orden con reference_id ${reference} no encontrada`);
+          return res.status(404).send('Orden no encontrada');
+        }
+
+        // Actualizar estado a Rechazada
+        await OrderModel.findByIdAndUpdate(
+          orden._id,
+          { 
+            status: 'Rechazada',
+            isPaid: false 
+          },
+          { new: true }
+        );
+
+        console.log(`✅ Orden ${orden._id} marcada como Rechazada por fallo de pago`);
+        break;
+      }
+
+      default:
+        console.log(`ℹ️ Evento no manejado: ${event.type}`);
+        break;
     }
 
-    // Asegurarse de que la orden sigue estando en el usuario
-    const user = await UserModel.findById(updatedOrder.user);
-    if (user && !user.orders.includes(updatedOrder._id)) {
-      user.orders.push(updatedOrder._id);
-      await user.save();
-    }
-
-    console.log(`✅ Estado de orden actualizado: ${updatedOrder._id} => ${updatedOrder.status}`);
-    return res.sendStatus(200);
+    return res.json({ received: true });
   } catch (error) {
     console.error('❌ Error procesando webhook:', error);
-    res.status(500).send('Internal server error');
+    return res.status(500).send('Internal server error');
   }
 };
 
-const verify = async (req, res) => {
+const verify_payment = async (req, res) => {
+  const { sessionId } = req.params;
+
   try {
-    const { ref_payco } = req.query;
-    const userId = req.userId;
+    // Obtener la sesión de Stripe
+    const session = await stripe.checkout.sessions.retrieve(sessionId);
 
-    console.log('🟡 Verificando ref_payco:', ref_payco);
-
-    if (!ref_payco) {
-      return res.status(400).json({ success: false, message: 'Referencia de pago no proporcionada' });
+    // Verificar el estado del pago
+    let status;
+    if (session.payment_status === 'paid') {
+      status = 'paid';
+    } else if (session.payment_status === 'unpaid') {
+      status = 'failed';
+    } else if (session.payment_status === 'pending') {
+      status = 'pending';
+    } else {
+      status = 'unknown';
     }
 
-    const user = await UserModel.findById(userId);
-    if (!user) {
-      return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
-    }
-
-    const epaycoResponse = await axios.get(`https://secure.epayco.co/validation/v1/reference/${ref_payco}`);
-    const paymentData = epaycoResponse.data?.data;
-
-    console.log('🔍 Datos recibidos de ePayco:', paymentData);
-
-    if (!paymentData) {
-      return res.status(400).json({ success: false, message: 'No se recibieron datos de ePayco' });
-    }
-
-    const referenceId = paymentData?.x_id_invoice;
-    const transactionStatus = paymentData?.x_response;
-    const transactionId = paymentData?.x_transaction_id;
-
-    if (!referenceId) {
-      return res.status(400).json({ success: false, message: 'No se encontró el ID de la orden en la respuesta de ePayco' });
-    }
-
-    const order = await OrderModel.findOne({ _id  : referenceId });
+    // Opcional: Verificar la orden en la base de datos
+    const order = await OrderModel.findOne({ reference_id: session.client_reference_id });
     if (!order) {
-      return res.status(404).json({ success: false, message: 'Orden no encontrada' });
+      return res.status(404).json({
+        success: false,
+        message: 'Orden no encontrada'
+      });
     }
-
-
-    // Agregar la orden al usuario solo si no existe aún
-
-    console.log('🟢 Orden actualizada y asociada al usuario');
 
     return res.json({
       success: true,
-      status: transactionStatus,
-      message: paymentData?.x_response_reason_text,
-      data: paymentData
+      status,
+      orderId: order._id
     });
-
   } catch (error) {
-    console.error('❌ Error verifying payment:', error?.response?.data || error.message);
-
+    console.error('Error verifying Stripe payment:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error al verificar el pago',
-      error: error?.response?.data || error.message
+      message: 'Error al verificar el pago'
     });
   }
 };
@@ -434,6 +531,6 @@ module.exports = {
   get_product,
   create_payment,
   webhook,
-  verify,
+  verify_payment,
   get_user
 };
