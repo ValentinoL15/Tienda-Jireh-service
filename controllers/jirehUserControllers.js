@@ -168,12 +168,12 @@ const get_products = async (req, res) => {
   try {
     // Obtener valores de consulta y asegurarse de que son números válidos
     const skip = parseInt(req.query.skip) || 0;
-    const limit = parseInt(req.query.limit) || 10; // Si no se pasa un límite, por defecto 10
+    const limit = 6; // Si no se pasa un límite, por defecto 10
 
     // Ejecutar ambas consultas en paralelo para mejorar rendimiento
     const [products, total] = await Promise.all([
-      ShoeModel.find().limit(limit).skip(skip),
-      ShoeModel.countDocuments()
+      ShoeModel.find({ discount: false }).limit(limit).skip(skip),
+      ShoeModel.countDocuments({discount: false})
     ]);
 
     return res.status(200).json({ products, total });
@@ -202,6 +202,19 @@ const get_product = async (req, res) => {
   } catch (error) {
     console.error('Error en GET /get_product:', error);
     return res.status(500).json({ message: 'Ocurrió un error al obtener el producto' });
+  }
+}
+
+const get_offers = async(req,res) => {
+  try {
+    const offers = await ShoeModel.find({ discount: true })
+    if(!offers){
+      return res.status(400).json({ message: "No se encontraron productos con descuento" })
+    }
+    return res.status(200).json({ offers })
+  } catch (err) {
+    console.error('Error en GET /get_offers:', err);
+    return res.status(500).json({ message: 'Ocurrió un error al obtener las ofertas' });
   }
 }
 
@@ -503,24 +516,6 @@ const verify_payment = async (req, res) => {
   }
 };
 
-
-
-// Esta ruta sería opcional, solo si necesitas procesar algo en el backend antes de redirigir
-/*router.get('/payment-response', async (req, res) => {
-  try {
-    const { ref_payco, x_ref_payco, x_response } = req.query;
-    
-    // Aquí puedes validar el pago con ePayco si lo necesitas
-    console.log('Datos de respuesta:', req.query);
-    
-    // Redirige al frontend con los parámetros
-    res.redirect(`https://tienda-jireh-users.vercel.app/payment-response?ref_payco=${ref_payco}`);
-  } catch (error) {
-    console.error('Error en payment-response:', error);
-    res.redirect('https://tienda-jireh-users.vercel.app/payment-response?error=1');
-  }
-});*/
-
 module.exports = {
   register,
   login,
@@ -532,5 +527,6 @@ module.exports = {
   create_payment,
   webhook,
   verify_payment,
-  get_user
+  get_user,
+  get_offers
 };
