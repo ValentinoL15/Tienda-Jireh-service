@@ -23,6 +23,7 @@ router.get('/get_products_by_gender/:brand/:gender', UserControllers.get_product
 
 router.get('/get_product/:id', UserControllers.get_product)
 
+router.get('/get-offers', UserControllers.get_offers)
 ///////////////////////////////////////////////////PAYMENTS/////////////////////////////////////////
 
 router.post('/create_payment', [isAuthenticated] , UserControllers.create_payment);
@@ -30,11 +31,6 @@ router.post('/create_payment', [isAuthenticated] , UserControllers.create_paymen
 router.get('/verify-payment/:sessionId', [isAuthenticated] , UserControllers.verify_payment)
 
 router.post('/webhook', UserControllers.webhook)
-
-
-
-
-
 
 
 module.exports = router
