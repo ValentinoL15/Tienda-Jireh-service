@@ -55,12 +55,12 @@ const specificShoeSchema = mongoose.Schema(
             type: Number,
             default: 0
         },
-        image: {
-            type: String,
+        images: {
+            type: [String],
             required: true
         },
-        public_id: {
-            type: String
+        public_ids: {
+            type: [String]
         }
     },
     { 

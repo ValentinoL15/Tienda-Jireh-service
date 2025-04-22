@@ -150,7 +150,7 @@ const getShoes = async (req, res) => {
         if (type) filters.type = type;
         if (req.query.reference_id) {
             const searchTerm = req.query.reference_id.trim();
-            filters.reference_id = { 
+            filters.reference_id = {
                 $regex: `^${searchTerm}`, // ^ para que coincida desde el inicio del string
                 $options: 'i' // 'i' para case-insensitive (opcional)
             };
@@ -353,6 +353,67 @@ const updateShoe = async (req, res) => {
     }
 };
 
+const updateShoeImage = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        // Validate ID
+        /*if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({ message: 'ID de tenis inválido' });
+        }*/
+
+        // Check if file is provided
+        if (!req.file) {
+            return res.status(400).json({ message: 'Se requiere una imagen' });
+        }
+
+        // Find the shoe
+        const shoe = await ShoeModel.findById(id);
+        if (!shoe) {
+            return res.status(404).json({ message: 'Tenis no encontrado' });
+        }
+
+        // Validate file buffer and mimetype
+        if (!req.file.buffer || !req.file.mimetype) {
+            console.error('Archivo inválido:', req.file);
+            return res.status(400).json({ message: 'Archivo de imagen inválido' });
+        }
+
+        // Upload new image to Cloudinary
+        const base64Image = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+        const result = await cloudinary.uploader.upload(base64Image, {
+            folder: 'tienda-jireh',
+            public_id: `shoe_${id}_${Date.now()}`,
+        }).catch(err => {
+            console.error('Error al subir imagen a Cloudinary:', err);
+            throw new Error('Error al subir imagen a Cloudinary');
+        });
+
+        // Update image and public_id
+        shoe.image = result.secure_url;
+        shoe.public_id = result.public_id;
+
+        // Save the updated document
+        await shoe.save();
+
+        console.log('Imagen de tenis actualizada:', {
+            id: shoe._id,
+            image: shoe.image,
+            public_id: shoe.public_id,
+        });
+
+        return res.status(200).json({
+            message: 'Imagen de tenis actualizada correctamente',
+            shoe: shoe.toObject(),
+        });
+    } catch (error) {
+        console.error('Error en /update-shoe-image:', error);
+        return res.status(500).json({
+            message: 'Error al actualizar la imagen del tenis',
+            error: error.message,
+        });
+    }
+};
 
 //DONE
 const deleteShoe = async (req, res) => {
@@ -408,19 +469,14 @@ const getSpecificShoe = async (req, res) => {
 const createSpecificShoe = async (req, res) => {
     try {
         const { id } = req.params;
-        const talles = req.body; // viene con campos como talle_38, talle_39, etc.
+        const talles = req.body;
 
-        if (!req.file) {
-            return res.status(400).json({ message: 'Imagen requerida' });
+        if (!req.files || req.files.length === 0) {
+            return res.status(400).json({ message: 'Se requieren al menos una imagen' });
         }
 
         const shoe = await ShoeModel.findById(id);
         if (!shoe) return res.status(404).json({ message: 'Tenis no encontrado' });
-
-        const result = await cloudinary.v2.uploader.upload(req.file.path);
-        if (!result) {
-            return res.status(400).json({ message: 'Error al subir la imagen a Cloudinary' });
-        }
 
         // Crear objeto con campos válidos de talles
         const stockTalles = {};
@@ -429,9 +485,9 @@ const createSpecificShoe = async (req, res) => {
         for (let i = 34; i <= 44; i++) {
             const key = `talle_${i}`;
             const stock = parseInt(talles[key]);
-            if (!isNaN(stock) && stock > 0) {
+            if (!isNaN(stock) && stock >= 0) {
                 stockTalles[key] = stock;
-                hayStock = true;
+                if (stock > 0) hayStock = true;
             }
         }
 
@@ -440,39 +496,58 @@ const createSpecificShoe = async (req, res) => {
         }
 
         // Verificar si ya existe un específico con los mismos talles para este modelo
-        const existing = await SpecificShoeModel.findOne({
-            shoe_id: id,
-            ...stockTalles
-        });
+        /* const existing = await SpecificShoeModel.findOne({
+           shoe_id: id,
+           ...stockTalles,
+         });
+     
+         if (existing) {
+           return res.status(400).json({ message: 'Ya existe un tenis con esos talles para este modelo' });
+         }*/
 
-        if (existing) {
-            return res.status(400).json({ message: 'Ya existe un tenis con esos talles para este modelo' });
-        }
+        // Subir imágenes a Cloudinary
+        const imageUploadResults = await Promise.all(
+            req.files.map(async (file, index) => {
+                if (!file.buffer || !file.mimetype) {
+                    throw new Error(`Archivo inválido en índice ${index}`);
+                }
+                const base64Image = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
+                return cloudinary.uploader.upload(base64Image, {
+                    folder: 'tienda-jireh',
+                    public_id: `shoe_${id}_${index}_${Date.now()}`,
+                });
+            })
+        );
+
+        const images = imageUploadResults.map(img => img.secure_url);
+        const public_ids = imageUploadResults.map(img => img.public_id);
 
         const specificShoe = new SpecificShoeModel({
             shoe_id: id,
-            image: result.url,
-            public_id: result.public_id,
-            ...stockTalles
+            images,
+            public_ids,
+            ...stockTalles,
         });
 
         await specificShoe.save();
         shoe.shoes.push(specificShoe._id);
         await shoe.save();
 
+        console.log('Tenis creado:', specificShoe);
         return res.status(201).json({ message: 'Tenis creado correctamente', specificShoe });
-
     } catch (error) {
         console.error('Error en /create-specific-shoe:', error);
-        return res.status(500).json({ message: 'Ocurrió un error creando el tenis específico' });
+        return res.status(500).json({ message: 'Ocurrió un error creando el tenis específico', error: error.message });
     }
 };
 
-
 const updateSpecificShoe = async (req, res) => {
     try {
-        const { id } = req.params; // ID del specific shoe a editar
-        const talles = req.body;
+        const { id } = req.params;
+        const { replaceIndexes, ...talles } = req.body;
+
+        console.log('Body recibido:', req.body);
+        console.log('Archivos recibidos:', req.files);
 
         const specificShoe = await SpecificShoeModel.findById(id);
         if (!specificShoe) {
@@ -481,7 +556,7 @@ const updateSpecificShoe = async (req, res) => {
 
         let hayCambios = false;
 
-        // Actualizar talles del 34 al 44 si vienen en el body
+        // 🔁 Actualizar talles
         for (let i = 34; i <= 44; i++) {
             const key = `talle_${i}`;
             if (key in talles) {
@@ -493,16 +568,58 @@ const updateSpecificShoe = async (req, res) => {
             }
         }
 
+        // 📸 Actualizar imágenes si se enviaron
+        if (req.files && Array.isArray(req.files) && req.files.length > 0 && replaceIndexes) {
+            const indexes = Array.isArray(replaceIndexes)
+                ? replaceIndexes.map((i) => parseInt(i))
+                : [parseInt(replaceIndexes)];
+
+            for (let i = 0; i < req.files.length; i++) {
+                const file = req.files[i];
+                const index = indexes[i];
+
+                // Validar que el archivo y el buffer existan
+                if (!file || !file.buffer || !file.mimetype) {
+                    console.error(`Archivo inválido en índice ${i}:`, file);
+                    continue;
+                }
+
+                if (index >= 0 && index < specificShoe.images.length) {
+                    // Convertir el buffer a base64
+                    const base64Image = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
+
+                    // Subir a Cloudinary
+                    const result = await cloudinary.uploader.upload(base64Image, {
+                        folder: 'tienda-jireh',
+                        public_id: `shoe_${id}_${index}_${Date.now()}`,
+                    }).catch(err => {
+                        console.error(`Error al subir imagen ${i} a Cloudinary:`, err);
+                        throw new Error('Error al subir imagen a Cloudinary');
+                    });
+
+                    // Reemplazar la URL en el array de imágenes
+                    console.log(`Reemplazando imagen en índice ${index}: ${specificShoe.images[index]} -> ${result.secure_url}`);
+                    specificShoe.images[index] = result.secure_url;
+                    hayCambios = true;
+                } else {
+                    console.warn(`Índice inválido: ${index} (longitud del array: ${specificShoe.images.length})`);
+                }
+            }
+        } else {
+            console.log('No se recibieron archivos o replaceIndexes:', { files: req.files, replaceIndexes });
+        }
+
         if (!hayCambios) {
-            return res.status(400).json({ message: 'No se proporcionaron talles válidos para actualizar' });
+            console.log('No hubo cambios en el documento:', specificShoe);
+            return res.status(400).json({ message: 'No se proporcionaron datos válidos para actualizar' });
         }
 
         await specificShoe.save();
+        console.log('Documento actualizado:', specificShoe);
         return res.status(200).json({ message: 'Tenis actualizado correctamente', specificShoe });
-
     } catch (error) {
         console.error('Error en /update-specific-shoe:', error);
-        return res.status(500).json({ message: 'Error al actualizar el tenis específico' });
+        return res.status(500).json({ message: 'Error al actualizar el tenis específico', error: error.message });
     }
 };
 
@@ -516,13 +633,14 @@ const deleteSpecificShoe = async (req, res) => {
         const shoe = await ShoeModel.findOne({ _id: specificShoe.shoe_id });
         if (!shoe) return res.status(404).json({ message: 'Tenis no encontrado' });
 
-        if (specificShoe.public_id) {
-            const result = await cloudinary.v2.uploader.destroy(specificShoe.public_id);
-            if (result.result !== 'ok') {
-                return res.status(400).json({ message: 'Error al eliminar la imagen de Cloudinary' });
+        if (specificShoe.public_ids && specificShoe.public_ids.length > 0) {
+            for (const public_id of specificShoe.public_ids) {
+                const result = await cloudinary.v2.uploader.destroy(public_id);
+                if (result.result !== 'ok') {
+                    return res.status(400).json({ message: 'Error al eliminar la imagen de Cloudinary', public_id });
+                }
             }
-        };
-
+        }
         for (const specificShoeId of shoe.shoes) {
             if (specificShoeId.toString() === id) {
                 shoe.shoes.pull(specificShoeId);
@@ -541,150 +659,150 @@ const deleteSpecificShoe = async (req, res) => {
 
 ///////////////////////////////////////////////DASHBOARD-INFO//////////////////////////////////////////////////////////
 
-const total_products = async(req,res) => {
+const total_products = async (req, res) => {
     try {
         const shoeTotal = await ShoeModel.countDocuments()
-        if(!shoeTotal){
-            return res.status(404).json({message: 'No hay productos en la base de datos'})
+        if (!shoeTotal) {
+            return res.status(404).json({ message: 'No hay productos en la base de datos' })
         }
-        
-        return res.status(200).json({shoeTotal})
+
+        return res.status(200).json({ shoeTotal })
     } catch (error) {
         console.log(error)
-        return res.status(500).json({message: 'Ocurrió un error al obtener el total de productos'})
+        return res.status(500).json({ message: 'Ocurrió un error al obtener el total de productos' })
     }
 }
 
-const total_orders = async(req,res) => {
+const total_orders = async (req, res) => {
     try {
         const totalDocuments = await OrdersModel.countDocuments();
-        return res.status(200).json({totalDocuments})
+        return res.status(200).json({ totalDocuments })
     } catch (error) {
         console.log(error)
-        return res.status(500).json({message: 'Ocurrió un error al obtener el total de pedidos'})
+        return res.status(500).json({ message: 'Ocurrió un error al obtener el total de pedidos' })
     }
 }
 
-const total_users = async(req,res) => {
+const total_users = async (req, res) => {
     try {
         const totalClients = await UserModel.countDocuments()
-        return res.status(200).json({totalClients})
+        return res.status(200).json({ totalClients })
     } catch (error) {
         console.log(error)
-        return res.status(500).json({message: 'Ocurrió un error al obtener el total de usuarios'})
+        return res.status(500).json({ message: 'Ocurrió un error al obtener el total de usuarios' })
     }
 }
 
-const orders_status = async(req,res) => {
+const orders_status = async (req, res) => {
     try {
         const orders = await OrdersModel.find()
-        if(!orders){
-            return res.status(404).json({message: 'No hay pedidos en la base de datos'})
+        if (!orders) {
+            return res.status(404).json({ message: 'No hay pedidos en la base de datos' })
         }
         let pendingOrders = 0;
         let acceptedOrders = 0;
         let rejectedOrders = 0;
         orders.forEach((p) => {
-            if(p.status === 'Aceptada') {
+            if (p.status === 'Aceptada') {
                 acceptedOrders++;
             }
-            if(p.status === 'Pendiente') {
+            if (p.status === 'Pendiente') {
                 pendingOrders++;
             }
-            if(p.status === 'Rechazada') {
+            if (p.status === 'Rechazada') {
                 rejectedOrders++;
             }
         })
-        return res.status(200).json({pendingOrders, acceptedOrders, rejectedOrders})
+        return res.status(200).json({ pendingOrders, acceptedOrders, rejectedOrders })
     } catch (error) {
         console.log(error)
-        return res.status(500).json({message: 'Ocurrió un error al obtener las ordenes'})
+        return res.status(500).json({ message: 'Ocurrió un error al obtener las ordenes' })
     }
 }
 
-const ganancias = async(req,res) => {
+const ganancias = async (req, res) => {
     try {
         const orders = await OrdersModel.find()
-        if(!orders) {
-            return res.status(404).json({message: 'No hay pedidos en la base de datos'})
+        if (!orders) {
+            return res.status(404).json({ message: 'No hay pedidos en la base de datos' })
         }
         let totalGanancias = 0;
         orders.forEach((g) => {
-            if(g.status === 'Aceptada') {
+            if (g.status === 'Aceptada') {
                 totalGanancias += g.totalAmount
             }
         })
-        return res.status(200).json({totalGanancias})
+        return res.status(200).json({ totalGanancias })
     } catch (error) {
         console.log(error)
-        return res.status(500).json({message: 'Ocurrió un error al obtener las ganancias'})
+        return res.status(500).json({ message: 'Ocurrió un error al obtener las ganancias' })
     }
 }
 
-const orders = async(req,res) => {
+const orders = async (req, res) => {
     try {
         const orders = await OrdersModel.find().populate({
             path: 'orderItems.product',
             populate: {
-              path: 'shoe_id', // este es el campo dentro de SpecificShoeModel
+                path: 'shoe_id', // este es el campo dentro de SpecificShoeModel
                 model: 'ShoeModel'
             }
         })
-        if(!orders) {
-            return res.status(404).json({message: 'No hay pedidos en la base de datos' })
+        if (!orders) {
+            return res.status(404).json({ message: 'No hay pedidos en la base de datos' })
         }
         return res.status(200).json({ orders })
     } catch (error) {
         console.log(error)
-        return res.status(500).json({message: 'Ocurrió un error al obtener las ordenes'})
+        return res.status(500).json({ message: 'Ocurrió un error al obtener las ordenes' })
     }
 }
 
-/********************************************************USUARIOS**********************************************************/ 
+/********************************************************USUARIOS**********************************************************/
 
-const users_mayoristas = async(req,res) => {
+const users_mayoristas = async (req, res) => {
     try {
         const users = await UserModel.find({ isMayorista: true })
-        if(!users) {
-            return res.status(404).json({message: 'No hay usuarios en la base de datos'})
+        if (!users) {
+            return res.status(404).json({ message: 'No hay usuarios en la base de datos' })
         }
-        return res.status(200).json({users})
+        return res.status(200).json({ users })
     } catch (error) {
         console.log(error)
-        return res.status(500).json({message: 'Ocurrió un error al obtener los usuarios'})
+        return res.status(500).json({ message: 'Ocurrió un error al obtener los usuarios' })
     }
-} 
+}
 
 const accept_mayorista = async (req, res) => {
     try {
-      const { _id } = req.body; // <-- CAMBIADO a body
-      const updatedUser = await UserModel.findByIdAndUpdate(_id, { verifyMayorista: true }, { new: true });
-  
-      if (!updatedUser) {
-        return res.status(404).json({ message: 'Usuario no encontrado' });
-      }
-  
-      return res.status(200).json({ message: 'Usuario verificado con éxito' });
-    } catch (error) {
-      console.log(error);
-      return res.status(500).json({ message: 'Ocurrió un error al aceptar el mayorista' });
-    }
-  };
+        const { _id } = req.body; // <-- CAMBIADO a body
+        const updatedUser = await UserModel.findByIdAndUpdate(_id, { verifyMayorista: true }, { new: true });
 
-  const decline_mayorista = async(req,res) => {
+        if (!updatedUser) {
+            return res.status(404).json({ message: 'Usuario no encontrado' });
+        }
+
+        return res.status(200).json({ message: 'Usuario verificado con éxito' });
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({ message: 'Ocurrió un error al aceptar el mayorista' });
+    }
+};
+
+const decline_mayorista = async (req, res) => {
     try {
         const { _id } = req.body;
         const updatedUser = await UserModel.findByIdAndUpdate(_id, { verifyMayorista: false }, { new: true });
         if (!updatedUser) {
             return res.status(404).json({ message: 'Usuario no encontrado' });
         }
-        
+
         return res.status(200).json({ message: 'Verificación revocada con éxito' });
     } catch (error) {
         console.log(error);
         return res.status(500).json({ message: 'Ocurrió un error al revocar el mayorista' });
     }
-  }
+}
 
 
 
@@ -699,6 +817,7 @@ module.exports = {
     getShoeBrand,
     getShoe,
     updateShoe,
+    updateShoeImage,
     deleteShoe,
     filterShoes,
     createSpecificShoe,
