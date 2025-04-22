@@ -26,6 +26,8 @@ router.post('/create-shoe', [isAuthenticated ,isAdmin] , multerStorage.single('i
 
 router.put('/update-shoe/:id', [isAuthenticated ,isAdmin] , AdminControllers.updateShoe);
 
+router.put('/update-shoe-image/:id', [isAuthenticated, isAdmin], multerStorage.single('image'), AdminControllers.updateShoeImage);
+
 router.delete('/delete-shoe/:id', [isAuthenticated ,isAdmin] , AdminControllers.deleteShoe);
 
 router.get('/filter-shoes', [isAuthenticated], AdminControllers.filterShoes)
@@ -34,9 +36,9 @@ router.get('/filter-shoes', [isAuthenticated], AdminControllers.filterShoes)
 
 router.get('/specific-shoe/:id', [isAuthenticated] ,AdminControllers.getSpecificShoe)
 
-router.post('/create-specific-shoe/:id', [isAuthenticated ,isAdmin] , multerStorage.single('image') ,AdminControllers.createSpecificShoe)
+router.post('/create-specific-shoe/:id', [isAuthenticated ,isAdmin] , multerStorage.array('images') ,AdminControllers.createSpecificShoe)
 
-router.put('/update-specific-shoe/:id', [isAuthenticated ,isAdmin], multerStorage.single('image') , AdminControllers.updateSpecificShoe);
+router.put('/update-specific-shoe/:id', [isAuthenticated ,isAdmin], multerStorage.array('images') , AdminControllers.updateSpecificShoe);
 
 router.delete('/delete-specific-shoe/:id', [isAuthenticated ,isAdmin] , AdminControllers.deleteSpecificShoe);
 
