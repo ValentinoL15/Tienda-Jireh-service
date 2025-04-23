@@ -78,7 +78,7 @@ const login = async (req, res) => {
     }
     const token = jwt.sign({ id: userExist._id, rol: userExist.rol }, process.env.JWT_SECRET_KEY, { expiresIn: "2h" })
     const name = userExist.name
-    return res.status(200).json({ message: 'Bienvenido', token, name });
+    return res.status(200).json({ message: 'Bienvenido', token, name, userExist });
   } catch (error) {
     console.log(error)
     return res.status(500).json({ error: 'Error al loguearse' });
