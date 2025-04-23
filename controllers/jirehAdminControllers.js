@@ -461,7 +461,7 @@ const getSpecificShoe = async (req, res) => {
         return res.status(200).json({ specificShoe });
     } catch (error) {
         console.error('Error en /get-specific-shoe:', error);
-        return res.status(500).json({ message: 'Ocurrió un error obteniendo los tenis específicos' });
+        return res.status(500).json({ message: 'Ocurrió un error obteniendo los tenis específico' });
     }
 }
 
