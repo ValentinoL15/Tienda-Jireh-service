@@ -30,6 +30,8 @@ router.post('/create_payment', [isAuthenticated] , UserControllers.create_paymen
 
 router.get('/verify-payment/:sessionId', [isAuthenticated] , UserControllers.verify_payment)
 
+router.post('/checkout-session',[isAuthenticated], UserControllers.createCheckoutSession);
+
 router.post('/webhook', UserControllers.webhook)
 
 
